@@ -304,7 +304,7 @@
 
     .log-header {
       display: flex;
-      justify-content: between;
+      justify-content: space-between;
       align-items: center;
       margin-bottom: 15px;
     }
@@ -345,10 +345,10 @@
       color: var(--text);
     }
 
-    .log-success { color: var(--success); }
-    .log-error { color: var(--danger); }
-    .log-warning { color: var(--warning); }
-    .log-info { color: var(--primary); }
+    .log-success .log-message { color: var(--success); }
+    .log-error .log-message { color: var(--danger); }
+    .log-warning .log-message { color: var(--warning); }
+    .log-info .log-message { color: var(--primary); }
 
     .ping-indicator {
       display: inline-block;
@@ -439,6 +439,7 @@
   <div class="container">
     <div class="header">
       <h1><i class="fas fa-rocket"></i> ぐるーぷすぱまー</h1>
+      <p>Discordグループ管理ツール</p>
     </div>
 
     <div class="dashboard">
@@ -451,13 +452,13 @@
 
         <div class="form-group">
           <label class="form-label">Discord Token</label>
-          <input type="text" id="token" class="form-input" placeholder="tokenを入力してください" required>
+          <input type="password" id="token" class="form-input" placeholder="トークンを入力してください" required>
         </div>
 
         <div class="form-group">
           <label class="form-label">メッセージファイル</label>
           <div class="file-upload">
-            <input type="file" id="messageFile" accept=".txt,.json" style="display: none;">
+            <input type="file" id="messageFile" accept=".txt,.json,.csv" style="display: none;">
             <label for="messageFile" class="file-upload-label">
               <i class="fas fa-file-upload"></i>
               ファイルを選択
@@ -468,44 +469,54 @@
 
         <div class="form-group">
           <label class="form-label">対象ユーザーID</label>
-          <textarea id="userIds" class="form-textarea" placeholder="ユーザーIDをカンマ、改行、またはスペースで区切って入力"></textarea>
+          <textarea id="userIds" class="form-textarea" placeholder="ユーザーIDを改行で区切って入力（最大9人）"></textarea>
         </div>
 
         <div class="stats-grid">
           <div class="form-group">
             <label class="form-label">グループ作成数</label>
-            <input type="number" id="groupCount" class="form-input" value="10" min="1" max="1000">
+            <input type="number" id="groupCount" class="form-input" value="10" min="1" max="100">
           </div>
           <div class="form-group">
-            <label class="form-label">メッセージ数</label>
-            <input type="number" id="messageCount" class="form-input" value="5" min="1" max="100">
+            <label class="form-label">メッセージ送信数</label>
+            <input type="number" id="messageCount" class="form-input" value="5" min="1" max="50">
           </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">カスタムメッセージ</label>
+          <textarea id="customMessage" class="form-textarea" placeholder="直接メッセージを入力（ファイルより優先）"></textarea>
         </div>
       </div>
 
+      <!-- 操作カード -->
       <div class="card">
         <div class="card-title">
           <i class="fas fa-sliders-h"></i>
           オプション設定
         </div>
 
-        <div class="checkbox-group" onclick="toggleCheckbox('showLogs')">
+        <div class="checkbox-group">
+          <input type="checkbox" id="showLogs" style="display: none;">
           <div class="checkbox" id="showLogsCheckbox"></div>
           <span>詳細ログを表示</span>
         </div>
 
-        <div class="checkbox-group" onclick="toggleCheckbox('spamDm')">
+        <div class="checkbox-group">
+          <input type="checkbox" id="spamDm" style="display: none;">
           <div class="checkbox" id="spamDmCheckbox"></div>
           <span>DMスパムを実行</span>
         </div>
 
-        <div class="checkbox-group" onclick="toggleCheckbox('leaveGroup')">
+        <div class="checkbox-group">
+          <input type="checkbox" id="leaveGroup" style="display: none;">
           <div class="checkbox" id="leaveGroupCheckbox"></div>
           <span>作成後にグループから退出</span>
         </div>
 
-        <div class="checkbox-group" onclick="toggleCheckbox('pingTest')">
-          <div class="checkbox" id="pingTestCheckbox" class="checked"></div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="pingTest" style="display: none;" checked>
+          <div class="checkbox checked" id="pingTestCheckbox"></div>
           <span>Pingテストを実行</span>
         </div>
 
@@ -518,6 +529,14 @@
             <div class="stat-value" id="messagesSent">0</div>
             <div class="stat-label">送信済みメッセージ</div>
           </div>
+          <div class="stat-item">
+            <div class="stat-value" id="groupsTarget">10</div>
+            <div class="stat-label">目標グループ数</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="messagesTarget">5</div>
+            <div class="stat-label">目標メッセージ数</div>
+          </div>
         </div>
 
         <div class="progress-bar">
@@ -525,15 +544,15 @@
         </div>
 
         <div class="button-group">
-          <button class="btn btn-primary" onclick="startOperation()" id="startBtn">
+          <button class="btn btn-primary" id="startBtn">
             <i class="fas fa-play"></i>
             実行開始
           </button>
-          <button class="btn btn-secondary" onclick="stopOperation()" id="stopBtn">
+          <button class="btn btn-secondary" id="stopBtn" disabled>
             <i class="fas fa-stop"></i>
             停止
           </button>
-          <button class="btn btn-danger" onclick="clearLogs()">
+          <button class="btn btn-danger" id="clearLogsBtn">
             <i class="fas fa-trash"></i>
             ログ削除
           </button>
@@ -541,6 +560,7 @@
       </div>
     </div>
 
+    <!-- ログカード -->
     <div class="card log-container">
       <div class="log-header">
         <h3><i class="fas fa-terminal"></i> 実行ログ</h3>
@@ -551,16 +571,94 @@
           </span>
         </div>
       </div>
-      <div class="log-box" id="logBox"></div>
+      <div class="log-box" id="logBox">
+        <div class="log-entry log-info">
+          <span class="log-time">[システム]</span>
+          <span class="log-message">Discord Group Manager が起動しました</span>
+        </div>
+        <div class="log-entry log-info">
+          <span class="log-time">[システム]</span>
+          <span class="log-message">トークンとユーザーIDを入力して実行開始してください</span>
+        </div>
+      </div>
     </div>
   </div>
 
+  <!-- フローティング統計 -->
   <div class="floating-stats">
-    <div>グループ作成: <span id="floatGroups">0</span></div>
-    <div>メッセージ送信: <span id="floatMessages">0</span></div>
-    <div>成功率: <span id="successRate">100%</span></div>
+    <div>グループ作成: <span id="floatGroups">0</span>/<span id="floatGroupsTarget">10</span></div>
+    <div>メッセージ送信: <span id="floatMessages">0</span>/<span id="floatMessagesTarget">5</span></div>
+    <div>成功率: <span id="successRate">0%</span></div>
   </div>
 
-  <script src="script.js"></script>
+  <script>
+    // チェックボックスのトグル機能
+    document.querySelectorAll('.checkbox-group').forEach(group => {
+      group.addEventListener('click', function() {
+        const checkbox = this.querySelector('.checkbox');
+        checkbox.classList.toggle('checked');
+      });
+    });
+
+    // ファイル選択の表示
+    document.getElementById('messageFile').addEventListener('change', function(e) {
+      const fileName = e.target.files[0] ? e.target.files[0].name : '未選択';
+      document.getElementById('fileName').textContent = fileName;
+    });
+
+    // ボタンの基本的な機能
+    document.getElementById('startBtn').addEventListener('click', function() {
+      this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 実行中...';
+      this.disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+      
+      // ログに追加
+      const logBox = document.getElementById('logBox');
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = document.createElement('div');
+      logEntry.className = 'log-entry log-info';
+      logEntry.innerHTML = `<span class="log-time">[${timestamp}]</span><span class="log-message">実行を開始しました</span>`;
+      logBox.appendChild(logEntry);
+      logBox.scrollTop = logBox.scrollHeight;
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', function() {
+      document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> 実行開始';
+      document.getElementById('startBtn').disabled = false;
+      this.disabled = true;
+      
+      const logBox = document.getElementById('logBox');
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = document.createElement('div');
+      logEntry.className = 'log-entry log-warning';
+      logEntry.innerHTML = `<span class="log-time">[${timestamp}]</span><span class="log-message">操作を停止しました</span>`;
+      logBox.appendChild(logEntry);
+      logBox.scrollTop = logBox.scrollHeight;
+    });
+
+    document.getElementById('clearLogsBtn').addEventListener('click', function() {
+      document.getElementById('logBox').innerHTML = `
+        <div class="log-entry log-info">
+          <span class="log-time">[システム]</span>
+          <span class="log-message">ログをクリアしました</span>
+        </div>
+      `;
+    });
+
+    // Ping表示の更新（デモ用）
+    setInterval(() => {
+      const ping = Math.floor(Math.random() * 200) + 50;
+      document.getElementById('pingValue').textContent = ping + 'ms';
+      
+      const indicator = document.querySelector('.ping-indicator');
+      if (ping < 100) {
+        indicator.className = 'ping-indicator ping-good';
+      } else if (ping < 300) {
+        indicator.className = 'ping-indicator ping-medium';
+      } else {
+        indicator.className = 'ping-indicator ping-bad';
+      }
+    }, 3000);
+  </script>
 </body>
 </html>
