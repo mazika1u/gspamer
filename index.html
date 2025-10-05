@@ -1,664 +1,348 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Web groupspamer</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    :root {
-      --primary: #5865f2;
-      --primary-dark: #4752c4;
-      --secondary: #eb459e;
-      --success: #57f287;
-      --danger: #ed4245;
-      --warning: #fee75c;
-      --background: #1e1f22;
-      --card-bg: #2b2d31;
-      --text: #ffffff;
-      --text-muted: #b5bac1;
-      --border: #40444b;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>コミュニケーションマネージャー</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
 
-    body {
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #0f0f0f, var(--background));
-      color: var(--text);
-      min-height: 100vh;
-      padding: 20px;
-      position: relative;
-      overflow-x: hidden;
-    }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
 
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: 
-        radial-gradient(circle at 20% 80%, rgba(88, 101, 242, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(235, 69, 158, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 40% 40%, rgba(87, 242, 135, 0.05) 0%, transparent 50%);
-      pointer-events: none;
-      z-index: -1;
-    }
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
 
-    .header {
-      text-align: center;
-      margin-bottom: 30px;
-      position: relative;
-    }
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
 
-    .header h1 {
-      font-size: 2.5rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 10px;
-    }
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
 
-    .header p {
-      color: var(--text-muted);
-      font-size: 1.1rem;
-    }
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
 
-    .dashboard {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 30px;
-      margin-bottom: 30px;
-    }
+        .panel {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
 
-    @media (max-width: 768px) {
-      .dashboard {
-        grid-template-columns: 1fr;
-      }
-    }
+        .panel h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-weight: 500;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
 
-    .card {
-      background: var(--card-bg);
-      border-radius: 20px;
-      padding: 30px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--border);
-      backdrop-filter: blur(10px);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
+        .form-group {
+            margin-bottom: 20px;
+        }
 
-    .card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
-    }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #34495e;
+            font-weight: 500;
+        }
 
-    .card-title {
-      font-size: 1.3rem;
-      font-weight: 600;
-      margin-bottom: 20px;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+        textarea, input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ecf0f1;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
 
-    .card-title i {
-      color: var(--primary);
-    }
+        textarea:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #3498db;
+        }
 
-    .form-group {
-      margin-bottom: 20px;
-    }
+        textarea {
+            height: 120px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+        }
 
-    .form-label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 500;
-      color: var(--text-muted);
-    }
+        .file-upload {
+            border: 2px dashed #bdc3c7;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
 
-    .form-input, .form-textarea, .form-select {
-      width: 100%;
-      padding: 12px 16px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      color: var(--text);
-      font-size: 14px;
-      transition: all 0.3s ease;
-    }
+        .file-upload:hover {
+            border-color: #3498db;
+        }
 
-    .form-input:focus, .form-textarea:focus, .form-select:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);
-    }
+        .file-name {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
 
-    .form-textarea {
-      min-height: 100px;
-      resize: vertical;
-      font-family: 'Inter', sans-serif;
-    }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
 
-    .file-upload {
-      position: relative;
-      display: inline-block;
-      width: 100%;
-    }
+        .checkbox-group input {
+            margin-right: 10px;
+        }
 
-    .file-upload-label {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      padding: 12px 20px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      color: white;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-weight: 500;
-    }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
 
-    .file-upload-label:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(88, 101, 242, 0.3);
-    }
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
 
-    .file-name {
-      margin-top: 8px;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
+        .primary-btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
 
-    .checkbox-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 15px;
-      cursor: pointer;
-    }
+        .primary-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
 
-    .checkbox {
-      width: 20px;
-      height: 20px;
-      border: 2px solid var(--border);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.3s ease;
-    }
+        .secondary-btn {
+            background: #e74c3c;
+            color: white;
+        }
 
-    .checkbox.checked {
-      background: var(--primary);
-      border-color: var(--primary);
-    }
+        .secondary-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        }
 
-    .checkbox.checked::after {
-      content: '✓';
-      color: white;
-      font-size: 12px;
-    }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
 
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 15px;
-      margin-bottom: 20px;
-    }
+        .loading {
+            position: relative;
+            color: transparent !important;
+        }
 
-    .stat-item {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 15px;
-      border-radius: 12px;
-      text-align: center;
-    }
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
 
-    .stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--primary);
-    }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
 
-    .stat-label {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-top: 5px;
-    }
+        .log-container {
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 8px;
+            padding: 20px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
 
-    .button-group {
-      display: flex;
-      gap: 15px;
-      margin-top: 25px;
-    }
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
-    .btn {
-      flex: 1;
-      padding: 15px 25px;
-      border: none;
-      border-radius: 12px;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
+        .log-time {
+            color: #3498db;
+            margin-right: 10px;
+        }
 
-    .btn-primary {
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      color: white;
-    }
+        .status-success { color: #2ecc71; }
+        .status-warning { color: #f39c12; }
+        .status-error { color: #e74c3c; }
+        .status-info { color: #3498db; }
 
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(88, 101, 242, 0.4);
-    }
+        .token-counter {
+            background: #34495e;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
 
-    .btn-secondary {
-      background: linear-gradient(135deg, #4f545c, #5a5f68);
-      color: white;
-    }
+        .counter-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            text-align: center;
+        }
 
-    .btn-secondary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(79, 84, 92, 0.4);
-    }
+        .counter-item {
+            padding: 10px;
+        }
 
-    .btn-danger {
-      background: linear-gradient(135deg, var(--danger), #c03537);
-      color: white;
-    }
+        .counter-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
 
-    .btn-danger:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(237, 66, 69, 0.4);
-    }
-
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none !important;
-      box-shadow: none !important;
-    }
-
-    .log-container {
-      margin-top: 30px;
-    }
-
-    .log-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-
-    .log-header h3 {
-      color: var(--text);
-    }
-
-    .log-controls {
-      display: flex;
-      gap: 10px;
-    }
-
-    .log-box {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
-      height: 300px;
-      overflow-y: auto;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 12px;
-      line-height: 1.4;
-    }
-
-    .log-entry {
-      margin-bottom: 8px;
-      padding: 5px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .log-time {
-      color: var(--primary);
-      font-weight: 500;
-    }
-
-    .log-message {
-      color: var(--text);
-    }
-
-    .log-success .log-message { color: var(--success); }
-    .log-error .log-message { color: var(--danger); }
-    .log-warning .log-message { color: var(--warning); }
-    .log-info .log-message { color: var(--primary); }
-
-    .ping-indicator {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 8px;
-    }
-
-    .ping-good { background: var(--success); }
-    .ping-medium { background: var(--warning); }
-    .ping-bad { background: var(--danger); }
-
-    .floating-stats {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: var(--card-bg);
-      padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--border);
-      z-index: 1000;
-    }
-
-    .floating-stats div {
-      margin-bottom: 5px;
-      font-size: 12px;
-    }
-
-    .progress-bar {
-      width: 100%;
-      height: 6px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 3px;
-      overflow: hidden;
-      margin-top: 10px;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--primary), var(--secondary));
-      transition: width 0.3s ease;
-    }
-
-    .notification {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--card-bg);
-      padding: 15px 25px;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-      border-left: 4px solid var(--primary);
-      z-index: 1001;
-      animation: slideDown 0.3s ease;
-    }
-
-    @keyframes slideDown {
-      from { transform: translate(-50%, -100%); opacity: 0; }
-      to { transform: translate(-50%, 0); opacity: 1; }
-    }
-
-    .loading {
-      position: relative;
-      overflow: hidden;
-    }
-
-    .loading::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-      animation: loading 1.5s infinite;
-    }
-
-    @keyframes loading {
-      0% { left: -100%; }
-      100% { left: 100%; }
-    }
-  </style>
+        .counter-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1><i class="fas fa-rocket"></i> ぐるーぷすぱまー</h1>
-      <p>Discordグループ管理ツール</p>
+    <div class="container">
+        <div class="header">
+            <h1>コミュニケーションマネージャー</h1>
+            <p>効率的なグループ管理とメッセージ配信</p>
+        </div>
+
+        <div class="content">
+            <div class="panel">
+                <h2>設定パネル</h2>
+                
+                <div class="token-counter">
+                    <div class="counter-grid">
+                        <div class="counter-item">
+                            <div class="counter-value" id="totalTokens">0</div>
+                            <div class="counter-label">トークン数</div>
+                        </div>
+                        <div class="counter-item">
+                            <div class="counter-value" id="activeTokens">0</div>
+                            <div class="counter-label">実行中</div>
+                        </div>
+                        <div class="counter-item">
+                            <div class="counter-value" id="completedTokens">0</div>
+                            <div class="counter-label">完了</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="authTokens">認証トークン (改行区切り)</label>
+                    <textarea id="authTokens" placeholder="複数のトークンを改行で入力してください..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="targetUsers">対象ユーザーID (オプション, カンマ区切り)</label>
+                    <input type="text" id="targetUsers" placeholder="ユーザーIDをカンマ区切りで入力...">
+                </div>
+
+                <div class="form-group">
+                    <label>送信ファイル</label>
+                    <div class="file-upload" id="fileUploadArea">
+                        <div>クリックしてファイルを選択</div>
+                        <div class="file-name" id="fileName">ファイル未選択</div>
+                    </div>
+                    <input type="file" id="fileInput" style="display: none;">
+                </div>
+
+                <div class="form-group">
+                    <label>グループアイコン</label>
+                    <div class="file-upload" id="iconUploadArea">
+                        <div>クリックしてアイコン画像を選択</div>
+                        <div class="file-name" id="iconFileName">アイコン未選択</div>
+                    </div>
+                    <input type="file" id="iconInput" style="display: none;" accept="image/*">
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enableLogging">
+                        <label for="enableLogging">詳細ログを表示</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enableDirectMessages">
+                        <label for="enableDirectMessages">ダイレクトメッセージを送信</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="autoExitGroups">
+                        <label for="autoExitGroups">グループ作成後に退出</label>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="primary-btn" id="startProcess">処理開始</button>
+                    <button class="secondary-btn" id="stopProcess">処理停止</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>実行ログ</h2>
+                <div class="log-container" id="logOutput">
+                    <div class="log-entry status-info">準備完了</div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="dashboard">
-      <!-- 設定カード -->
-      <div class="card">
-        <div class="card-title">
-          <i class="fas fa-cog"></i>
-          基本設定
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Discord Token</label>
-          <input type="password" id="token" class="form-input" placeholder="トークンを入力してください" required>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">メッセージファイル</label>
-          <div class="file-upload">
-            <input type="file" id="messageFile" accept=".txt,.json,.csv" style="display: none;">
-            <label for="messageFile" class="file-upload-label">
-              <i class="fas fa-file-upload"></i>
-              ファイルを選択
-            </label>
-            <div class="file-name" id="fileName">未選択</div>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">対象ユーザーID</label>
-          <textarea id="userIds" class="form-textarea" placeholder="ユーザーIDを改行で区切って入力（最大9人）"></textarea>
-        </div>
-
-        <div class="stats-grid">
-          <div class="form-group">
-            <label class="form-label">グループ作成数</label>
-            <input type="number" id="groupCount" class="form-input" value="10" min="1" max="100">
-          </div>
-          <div class="form-group">
-            <label class="form-label">メッセージ送信数</label>
-            <input type="number" id="messageCount" class="form-input" value="5" min="1" max="50">
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">カスタムメッセージ</label>
-          <textarea id="customMessage" class="form-textarea" placeholder="直接メッセージを入力（ファイルより優先）"></textarea>
-        </div>
-      </div>
-
-      <!-- 操作カード -->
-      <div class="card">
-        <div class="card-title">
-          <i class="fas fa-sliders-h"></i>
-          オプション設定
-        </div>
-
-        <div class="checkbox-group">
-          <input type="checkbox" id="showLogs" style="display: none;">
-          <div class="checkbox" id="showLogsCheckbox"></div>
-          <span>詳細ログを表示</span>
-        </div>
-
-        <div class="checkbox-group">
-          <input type="checkbox" id="spamDm" style="display: none;">
-          <div class="checkbox" id="spamDmCheckbox"></div>
-          <span>DMスパムを実行</span>
-        </div>
-
-        <div class="checkbox-group">
-          <input type="checkbox" id="leaveGroup" style="display: none;">
-          <div class="checkbox" id="leaveGroupCheckbox"></div>
-          <span>作成後にグループから退出</span>
-        </div>
-
-        <div class="checkbox-group">
-          <input type="checkbox" id="pingTest" style="display: none;" checked>
-          <div class="checkbox checked" id="pingTestCheckbox"></div>
-          <span>Pingテストを実行</span>
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-value" id="groupsCreated">0</div>
-            <div class="stat-label">作成済みグループ</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="messagesSent">0</div>
-            <div class="stat-label">送信済みメッセージ</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="groupsTarget">10</div>
-            <div class="stat-label">目標グループ数</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="messagesTarget">5</div>
-            <div class="stat-label">目標メッセージ数</div>
-          </div>
-        </div>
-
-        <div class="progress-bar">
-          <div class="progress-fill" id="progressBar" style="width: 0%"></div>
-        </div>
-
-        <div class="button-group">
-          <button class="btn btn-primary" id="startBtn">
-            <i class="fas fa-play"></i>
-            実行開始
-          </button>
-          <button class="btn btn-secondary" id="stopBtn" disabled>
-            <i class="fas fa-stop"></i>
-            停止
-          </button>
-          <button class="btn btn-danger" id="clearLogsBtn">
-            <i class="fas fa-trash"></i>
-            ログ削除
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ログカード -->
-    <div class="card log-container">
-      <div class="log-header">
-        <h3><i class="fas fa-terminal"></i> 実行ログ</h3>
-        <div class="log-controls">
-          <span id="pingStatus">
-            <span class="ping-indicator ping-good"></span>
-            Ping: <span id="pingValue">-</span>ms
-          </span>
-        </div>
-      </div>
-      <div class="log-box" id="logBox">
-        <div class="log-entry log-info">
-          <span class="log-time">[システム]</span>
-          <span class="log-message">Discord Group Manager が起動しました</span>
-        </div>
-        <div class="log-entry log-info">
-          <span class="log-time">[システム]</span>
-          <span class="log-message">トークンとユーザーIDを入力して実行開始してください</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- フローティング統計 -->
-  <div class="floating-stats">
-    <div>グループ作成: <span id="floatGroups">0</span>/<span id="floatGroupsTarget">10</span></div>
-    <div>メッセージ送信: <span id="floatMessages">0</span>/<span id="floatMessagesTarget">5</span></div>
-    <div>成功率: <span id="successRate">0%</span></div>
-  </div>
-
-  <script>
-    // チェックボックスのトグル機能
-    document.querySelectorAll('.checkbox-group').forEach(group => {
-      group.addEventListener('click', function() {
-        const checkbox = this.querySelector('.checkbox');
-        checkbox.classList.toggle('checked');
-      });
-    });
-
-    // ファイル選択の表示
-    document.getElementById('messageFile').addEventListener('change', function(e) {
-      const fileName = e.target.files[0] ? e.target.files[0].name : '未選択';
-      document.getElementById('fileName').textContent = fileName;
-    });
-
-    // ボタンの基本的な機能
-    document.getElementById('startBtn').addEventListener('click', function() {
-      this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 実行中...';
-      this.disabled = true;
-      document.getElementById('stopBtn').disabled = false;
-      
-      // ログに追加
-      const logBox = document.getElementById('logBox');
-      const timestamp = new Date().toLocaleTimeString();
-      const logEntry = document.createElement('div');
-      logEntry.className = 'log-entry log-info';
-      logEntry.innerHTML = `<span class="log-time">[${timestamp}]</span><span class="log-message">実行を開始しました</span>`;
-      logBox.appendChild(logEntry);
-      logBox.scrollTop = logBox.scrollHeight;
-    });
-
-    document.getElementById('stopBtn').addEventListener('click', function() {
-      document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> 実行開始';
-      document.getElementById('startBtn').disabled = false;
-      this.disabled = true;
-      
-      const logBox = document.getElementById('logBox');
-      const timestamp = new Date().toLocaleTimeString();
-      const logEntry = document.createElement('div');
-      logEntry.className = 'log-entry log-warning';
-      logEntry.innerHTML = `<span class="log-time">[${timestamp}]</span><span class="log-message">操作を停止しました</span>`;
-      logBox.appendChild(logEntry);
-      logBox.scrollTop = logBox.scrollHeight;
-    });
-
-    document.getElementById('clearLogsBtn').addEventListener('click', function() {
-      document.getElementById('logBox').innerHTML = `
-        <div class="log-entry log-info">
-          <span class="log-time">[システム]</span>
-          <span class="log-message">ログをクリアしました</span>
-        </div>
-      `;
-    });
-
-    // Ping表示の更新（デモ用）
-    setInterval(() => {
-      const ping = Math.floor(Math.random() * 200) + 50;
-      document.getElementById('pingValue').textContent = ping + 'ms';
-      
-      const indicator = document.querySelector('.ping-indicator');
-      if (ping < 100) {
-        indicator.className = 'ping-indicator ping-good';
-      } else if (ping < 300) {
-        indicator.className = 'ping-indicator ping-medium';
-      } else {
-        indicator.className = 'ping-indicator ping-bad';
-      }
-    }, 3000);
-  </script>
+    <script src="app.js"></script>
 </body>
 </html>
