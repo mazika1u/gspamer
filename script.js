@@ -1,4 +1,4 @@
-class CommunicationManager {
+class GroupSpammer {
     constructor() {
         this.isProcessing = false;
         this.isStopping = false;
@@ -11,27 +11,27 @@ class CommunicationManager {
     }
 
     initializeEventListeners() {
-        // File upload handlers
+        // ファイルアップロード
         document.getElementById('fileUploadArea').addEventListener('click', () => {
             document.getElementById('fileInput').click();
         });
 
         document.getElementById('fileInput').addEventListener('change', (event) => {
             const file = event.target.files[0];
-            document.getElementById('fileName').textContent = file ? file.name : 'No file selected';
+            document.getElementById('fileName').textContent = file ? file.name : 'ファイルが選択されていません';
         });
 
-        // Icon upload handlers
+        // アイコンアップロード
         document.getElementById('iconUploadArea').addEventListener('click', () => {
             document.getElementById('iconInput').click();
         });
 
         document.getElementById('iconInput').addEventListener('change', (event) => {
             const file = event.target.files[0];
-            document.getElementById('iconFileName').textContent = file ? file.name : 'No icon selected';
+            document.getElementById('iconFileName').textContent = file ? file.name : 'アイコンなし';
         });
 
-        // Button event handlers
+        // ボタンイベント
         document.getElementById('startProcess').addEventListener('click', () => {
             this.startProcessing();
         });
@@ -46,7 +46,7 @@ class CommunicationManager {
 
         const tokens = this.getTokens();
         if (tokens.length === 0) {
-            this.addLog('No authentication tokens provided', 'error');
+            this.addLog('トークンが入力されていません', 'error');
             return;
         }
 
@@ -58,7 +58,7 @@ class CommunicationManager {
         
         this.updateTokenCounters();
         this.updateButtonStates();
-        this.addLog('Starting process...', 'info');
+        this.addLog('処理を開始します...', 'info');
 
         try {
             const fileData = await this.prepareFileData();
@@ -66,7 +66,7 @@ class CommunicationManager {
             const targetUsers = this.getTargetUsers();
             const options = this.getOptions();
 
-            // Process tokens in parallel
+            // 各トークンで並列処理
             const promises = tokens.map(token => 
                 this.processSingleToken(token, fileData, iconData, targetUsers, options)
             );
@@ -74,10 +74,10 @@ class CommunicationManager {
             await Promise.allSettled(promises);
             
             if (!this.isStopping) {
-                this.addLog('All processes completed successfully', 'success');
+                this.addLog('すべての処理が完了しました', 'success');
             }
         } catch (error) {
-            this.addLog(`Process error: ${error.message}`, 'error');
+            this.addLog(`処理中にエラーが発生: ${error.message}`, 'error');
         } finally {
             this.isProcessing = false;
             this.updateButtonStates();
@@ -91,7 +91,7 @@ class CommunicationManager {
         this.isProcessing = false;
         this.activeTokens.clear();
         this.updateButtonStates();
-        this.addLog('Process stopped by user', 'warning');
+        this.addLog('処理を停止しました', 'warning');
     }
 
     async processSingleToken(token, fileData, iconData, targetUsers, options) {
@@ -102,118 +102,126 @@ class CommunicationManager {
         this.updateTokenCounters();
 
         try {
-            this.addLog(`Validating token...`, 'info', tokenId);
+            this.addLog(`トークン検証中...`, 'info', tokenId);
             
             const isValid = await this.validateToken(token);
             if (!isValid) {
-                this.addLog('Invalid token', 'error', tokenId);
+                this.addLog('トークンが無効です', 'error', tokenId);
                 return;
             }
 
             if (this.isStopping) return;
 
-            // Create group communications
-            await this.createCommunicationGroups(token, fileData, iconData, targetUsers, options, tokenId);
+            // グループ作成処理
+            await this.createGroups(token, fileData, iconData, targetUsers, options, tokenId);
             
-            // Send direct messages
+            // DM送信処理
             if (options.sendDirectMessages) {
                 await this.sendDirectMessages(token, fileData, targetUsers, options, tokenId);
             }
 
             this.completedTokens.add(tokenId);
-            this.addLog('Process completed', 'success', tokenId);
+            this.addLog('処理完了', 'success', tokenId);
 
         } catch (error) {
-            this.addLog(`Process failed: ${error.message}`, 'error', tokenId);
+            this.addLog(`処理失敗: ${error.message}`, 'error', tokenId);
         } finally {
             this.activeTokens.delete(tokenId);
             this.updateTokenCounters();
         }
     }
 
-    async createCommunicationGroups(token, fileData, iconData, targetUsers, options, tokenId) {
+    async createGroups(token, fileData, iconData, targetUsers, options, tokenId) {
         let successCount = 0;
         let attemptCount = 0;
-        const maxAttempts = 50;
+        const maxAttempts = 20;
 
         while (attemptCount < maxAttempts && !this.isStopping) {
             attemptCount++;
             
             try {
-                const friends = await this.fetchUserRelationships(token, tokenId);
-                const recipientIds = this.selectRecipients(friends, targetUsers);
+                const friends = await this.getFriends(token, tokenId);
+                const recipientIds = this.selectFriends(friends, targetUsers);
                 
                 if (recipientIds.length === 0) {
-                    this.addLog('No target users found', 'warning', tokenId);
+                    this.addLog('対象ユーザーが見つかりません', 'warning', tokenId);
                     break;
                 }
 
-                const channel = await this.createGroupChannel(token, recipientIds, tokenId);
+                const channel = await this.makeGroup(token, recipientIds, tokenId);
                 if (!channel) continue;
 
-                // Configure group settings
-                await this.configureGroupChannel(token, channel.id, iconData, tokenId);
+                // グループ設定
+                await this.setupGroup(token, channel.id, iconData, tokenId);
                 
-                // Send file
-                await this.sendChannelMessage(token, channel.id, fileData, tokenId);
+                // ファイル送信
+                if (fileData) {
+                    await this.sendFile(token, channel.id, fileData, tokenId);
+                }
                 
-                // Exit group if configured
+                // 退出処理
                 if (options.autoExitGroups) {
-                    await this.exitGroupChannel(token, channel.id, tokenId);
+                    await this.leaveGroup(token, channel.id, tokenId);
                 }
 
                 successCount++;
-                this.addLog(`Group created successfully (${successCount})`, 'success', tokenId);
+                this.addLog(`グループ作成成功 (${successCount}回目)`, 'success', tokenId);
 
-                // Rate limiting delay
-                await this.delay(2000 + Math.random() * 3000);
+                // レート制限回避
+                await this.wait(2000 + Math.random() * 3000);
 
             } catch (error) {
-                this.addLog(`Group creation failed: ${error.message}`, 'error', tokenId);
-                await this.delay(5000);
+                this.addLog(`グループ作成失敗: ${error.message}`, 'error', tokenId);
+                await this.wait(5000);
             }
         }
     }
 
     async sendDirectMessages(token, fileData, targetUsers, options, tokenId) {
         try {
-            const channels = await this.fetchDirectMessageChannels(token, tokenId);
-            const targetChannels = this.filterTargetChannels(channels, targetUsers);
+            const channels = await this.getDMChannels(token, tokenId);
+            const targetChannels = this.filterChannels(channels, targetUsers);
             
-            this.addLog(`Found ${targetChannels.length} DM channels`, 'info', tokenId);
+            this.addLog(`${targetChannels.length}件のDMチャンネルを発見`, 'info', tokenId);
 
             for (const channel of targetChannels) {
                 if (this.isStopping) break;
                 
                 try {
-                    await this.sendChannelMessage(token, channel.id, fileData, tokenId);
-                    await this.delay(1000 + Math.random() * 2000);
+                    if (fileData) {
+                        await this.sendFile(token, channel.id, fileData, tokenId);
+                    }
+                    await this.wait(1000 + Math.random() * 2000);
                 } catch (error) {
-                    this.addLog(`DM send failed: ${error.message}`, 'error', tokenId);
+                    this.addLog(`DM送信失敗: ${error.message}`, 'error', tokenId);
                 }
             }
         } catch (error) {
-            this.addLog(`DM fetch failed: ${error.message}`, 'error', tokenId);
+            this.addLog(`DM取得失敗: ${error.message}`, 'error', tokenId);
         }
     }
 
-    // API communication methods
+    // API通信メソッド
     async validateToken(token) {
-        const response = await this.apiRequest('https://discord.com/api/v9/users/@me', {
-            headers: { 'Authorization': token }
-        });
-        return response.status < 300;
+        try {
+            const response = await this.apiCall('https://discord.com/api/v9/users/@me', {
+                headers: { 'Authorization': token }
+            });
+            return response.status < 300;
+        } catch {
+            return false;
+        }
     }
 
-    async fetchUserRelationships(token, tokenId) {
-        const response = await this.apiRequest('https://discord.com/api/v9/users/@me/relationships', {
+    async getFriends(token, tokenId) {
+        const response = await this.apiCall('https://discord.com/api/v9/users/@me/relationships', {
             headers: { 'Authorization': token }
         }, tokenId);
         return response.data || [];
     }
 
-    async createGroupChannel(token, recipients, tokenId) {
-        const response = await this.apiRequest('https://discord.com/api/v9/users/@me/channels', {
+    async makeGroup(token, recipients, tokenId) {
+        const response = await this.apiCall('https://discord.com/api/v9/users/@me/channels', {
             method: 'POST',
             headers: { 
                 'Authorization': token,
@@ -225,7 +233,7 @@ class CommunicationManager {
         return response.data;
     }
 
-    async configureGroupChannel(token, channelId, iconData, tokenId) {
+    async setupGroup(token, channelId, iconData, tokenId) {
         const groupData = {
             name: `group-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
         };
@@ -234,7 +242,7 @@ class CommunicationManager {
             groupData.icon = iconData;
         }
 
-        await this.apiRequest(`https://discord.com/api/v9/channels/${channelId}`, {
+        await this.apiCall(`https://discord.com/api/v9/channels/${channelId}`, {
             method: 'PATCH',
             headers: { 
                 'Authorization': token,
@@ -244,63 +252,63 @@ class CommunicationManager {
         }, tokenId);
     }
 
-    async sendChannelMessage(token, channelId, fileData, tokenId) {
-        if (fileData) {
-            // Send file
-            const formData = new FormData();
-            formData.append('file', new Blob([fileData.content]), fileData.name);
-            
-            await this.apiRequest(`https://discord.com/api/v9/channels/${channelId}/messages`, {
-                method: 'POST',
-                headers: { 'Authorization': token },
-                body: formData
-            }, tokenId);
-        }
+    async sendFile(token, channelId, fileData, tokenId) {
+        const formData = new FormData();
+        const blob = new Blob([fileData.content], { type: fileData.type });
+        formData.append('file', blob, fileData.name);
+        
+        await this.apiCall(`https://discord.com/api/v9/channels/${channelId}/messages`, {
+            method: 'POST',
+            headers: { 'Authorization': token },
+            body: formData
+        }, tokenId);
     }
 
-    async exitGroupChannel(token, channelId, tokenId) {
-        await this.apiRequest(`https://discord.com/api/v9/channels/${channelId}?silent=false`, {
+    async leaveGroup(token, channelId, tokenId) {
+        await this.apiCall(`https://discord.com/api/v9/channels/${channelId}?silent=false`, {
             method: 'DELETE',
             headers: { 'Authorization': token }
         }, tokenId);
     }
 
-    async fetchDirectMessageChannels(token, tokenId) {
-        const response = await this.apiRequest('https://discord.com/api/v9/users/@me/channels', {
+    async getDMChannels(token, tokenId) {
+        const response = await this.apiCall('https://discord.com/api/v9/users/@me/channels', {
             headers: { 'Authorization': token }
         }, tokenId);
         return response.data || [];
     }
 
-    // Utility methods
-    async apiRequest(url, options, tokenId = '') {
-        if (this.isStopping) throw new Error('Process stopped');
+    // API呼び出しユーティリティ
+    async apiCall(url, options, tokenId = '') {
+        if (this.isStopping) throw new Error('処理が停止されました');
 
         try {
             const response = await fetch(url, options);
             const data = await response.json().catch(() => ({}));
             
+            // レート制限処理
             if (response.status === 429) {
                 const retryAfter = (data.retry_after || 1) * 1000;
-                this.addLog(`Rate limit: waiting ${retryAfter/1000}s`, 'warning', tokenId);
-                await this.delay(retryAfter);
-                return this.apiRequest(url, options, tokenId);
+                this.addLog(`レート制限: ${retryAfter/1000}秒待機`, 'warning', tokenId);
+                await this.wait(retryAfter);
+                return this.apiCall(url, options, tokenId);
             }
 
             if (response.status >= 400) {
-                throw new Error(`API error: ${response.status} - ${JSON.stringify(data)}`);
+                throw new Error(`APIエラー: ${response.status}`);
             }
 
             return { status: response.status, data };
         } catch (error) {
             if (error.message.includes('Failed to fetch')) {
-                throw new Error('Network error');
+                throw new Error('ネットワークエラー');
             }
             throw error;
         }
     }
 
-    selectRecipients(friends, targetUsers) {
+    // ユーティリティメソッド
+    selectFriends(friends, targetUsers) {
         const validFriends = friends.filter(friend => 
             friend.type === 1 && friend.id
         );
@@ -317,7 +325,7 @@ class CommunicationManager {
             .slice(0, 9);
     }
 
-    filterTargetChannels(channels, targetUsers) {
+    filterChannels(channels, targetUsers) {
         return channels.filter(channel => {
             const recipient = channel.recipients?.[0];
             return recipient && (targetUsers.length === 0 || targetUsers.includes(recipient.id));
@@ -367,7 +375,7 @@ class CommunicationManager {
     getTokens() {
         const tokensText = document.getElementById('authTokens').value;
         return tokensText
-            .split('\n')
+            .split(/[\n,]+/)
             .map(token => token.trim())
             .filter(token => token.length > 0);
     }
@@ -375,7 +383,7 @@ class CommunicationManager {
     getTargetUsers() {
         const usersText = document.getElementById('targetUsers').value;
         return usersText
-            .split(',')
+            .split(/[\n,]+/)
             .map(id => id.trim())
             .filter(id => id.length > 0);
     }
@@ -389,14 +397,15 @@ class CommunicationManager {
     }
 
     hashToken(token) {
+        // トークンの簡易ハッシュ（表示用）
         return btoa(token.substring(0, 10)).substring(0, 8);
     }
 
-    delay(ms) {
+    wait(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // UI update methods
+    // UI更新メソッド
     addLog(message, type = 'info', tokenId = '') {
         const logOutput = document.getElementById('logOutput');
         const time = new Date().toLocaleTimeString();
@@ -412,7 +421,7 @@ class CommunicationManager {
         logOutput.appendChild(logEntry);
         logOutput.scrollTop = logOutput.scrollHeight;
 
-        // Check detailed logging setting
+        // 詳細ログ設定をチェック
         const showDetailed = document.getElementById('enableLogging').checked;
         if (!showDetailed && type === 'info') {
             logEntry.style.display = 'none';
@@ -434,13 +443,21 @@ class CommunicationManager {
 
         if (this.isProcessing) {
             startBtn.classList.add('loading');
+            startBtn.textContent = '実行中...';
         } else {
             startBtn.classList.remove('loading');
+            startBtn.textContent = 'じっこう';
         }
     }
 }
 
-// Application initialization
+// アプリケーション初期化
 document.addEventListener('DOMContentLoaded', () => {
-    new CommunicationManager();
+    window.groupSpammer = new GroupSpammer();
 });
+
+// デバッグ用のグローバル関数
+window.debugInfo = function() {
+    console.log('GroupSpammer Debug Info:');
+    console.log('Instance:', window.groupSpammer);
+};
