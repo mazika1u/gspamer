@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Communication Manager</title>
+    <title>ぐるーぷすぱまー</title>
     <style>
         * {
             margin: 0;
@@ -298,46 +298,46 @@
 
     <div class="container">
         <div class="header">
-            <h1>Communication Manager</h1>
-            <p>Efficient Group Management & Message Distribution</p>
+            <h1>まじかるのぐるすぱ</h1>
+            <p>素晴らしいほど使いやすいと思うよ多分</p>
         </div>
 
         <div class="content">
             <div class="panel">
-                <h2>Configuration Panel</h2>
+                <h2>基本設定</h2>
                 
                 <div class="token-counter">
                     <div class="counter-grid">
                         <div class="counter-item">
                             <div class="counter-value" id="totalTokens">0</div>
-                            <div class="counter-label">Total Tokens</div>
+                            <div class="counter-label">token</div>
                         </div>
                         <div class="counter-item">
                             <div class="counter-value" id="activeTokens">0</div>
-                            <div class="counter-label">Active</div>
+                            <div class="counter-label">実行数</div>
                         </div>
                         <div class="counter-item">
                             <div class="counter-value" id="completedTokens">0</div>
-                            <div class="counter-label">Completed</div>
+                            <div class="counter-label">成功数</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="section-title">Authentication</div>
+                <div class="section-title">Token設定</div>
                 <div class="form-group">
-                    <label for="authTokens">Authentication Tokens (one per line)</label>
+                    <label for="authTokens">Token設定(改行か,でで分けろ)</label>
                     <textarea id="authTokens" placeholder="Enter multiple tokens, one per line..."></textarea>
                 </div>
 
-                <div class="section-title">Target Configuration</div>
+                <div class="section-title">ターゲット</div>
                 <div class="form-group">
-                    <label for="targetUsers">Target User IDs (optional, comma separated)</label>
+                    <label for="targetUsers">たーげっとゆーざーid(,で分けるか改行)</label>
                     <input type="text" id="targetUsers" placeholder="Enter user IDs separated by commas...">
                 </div>
 
-                <div class="section-title">Content Settings</div>
+                <div class="section-title">ぐるーぷのせってい</div>
                 <div class="form-group">
-                    <label>File to Send</label>
+                    <label>おくるめっせーじ</label>
                     <div class="file-upload" id="fileUploadArea">
                         <div>Click to select file</div>
                         <div class="file-name" id="fileName">No file selected</div>
@@ -346,38 +346,38 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Group Icon</label>
+                    <label>あいこん</label>
                     <div class="file-upload" id="iconUploadArea">
-                        <div>Click to select icon image</div>
-                        <div class="file-name" id="iconFileName">No icon selected</div>
+                        <div>Click to select icon</div>
+                        <div class="file-name" id="iconFileName">No icon</div>
                     </div>
                     <input type="file" id="iconInput" style="display: none;" accept="image/*">
                 </div>
 
-                <div class="section-title">Options</div>
+                <div class="section-title">おぷしょん</div>
                 <div class="form-group">
                     <div class="checkbox-group">
                         <input type="checkbox" id="enableLogging">
-                        <label for="enableLogging">Show detailed logs</label>
+                        <label for="enableLogging">ろぐを表示</label>
                     </div>
                     <div class="checkbox-group">
                         <input type="checkbox" id="enableDirectMessages">
-                        <label for="enableDirectMessages">Send direct messages</label>
+                        <label for="enableDirectMessages">DMを送信する</label>
                     </div>
                     <div class="checkbox-group">
                         <input type="checkbox" id="autoExitGroups">
-                        <label for="autoExitGroups">Auto exit after group creation</label>
+                        <label for="autoExitGroups">ぐるーぷじどうたいしゅつ</label>
                     </div>
                 </div>
 
                 <div class="button-group">
-                    <button class="primary-btn" id="startProcess">Start Process</button>
-                    <button class="secondary-btn" id="stopProcess">Stop Process</button>
+                    <button class="primary-btn" id="startProcess">じっこう</button>
+                    <button class="secondary-btn" id="stopProcess">すとっぷ</button>
                 </div>
             </div>
 
             <div class="panel">
-                <h2>Execution Log</h2>
+                <h2>ろぐ</h2>
                 <div class="log-container" id="logOutput">
                     <div class="log-entry status-info">System ready</div>
                 </div>
