@@ -11,27 +11,27 @@ class CommunicationManager {
     }
 
     initializeEventListeners() {
-        // ファイルアップロード
+        // File upload handlers
         document.getElementById('fileUploadArea').addEventListener('click', () => {
             document.getElementById('fileInput').click();
         });
 
         document.getElementById('fileInput').addEventListener('change', (event) => {
             const file = event.target.files[0];
-            document.getElementById('fileName').textContent = file ? file.name : 'ファイル未選択';
+            document.getElementById('fileName').textContent = file ? file.name : 'No file selected';
         });
 
-        // アイコンアップロード
+        // Icon upload handlers
         document.getElementById('iconUploadArea').addEventListener('click', () => {
             document.getElementById('iconInput').click();
         });
 
         document.getElementById('iconInput').addEventListener('change', (event) => {
             const file = event.target.files[0];
-            document.getElementById('iconFileName').textContent = file ? file.name : 'アイコン未選択';
+            document.getElementById('iconFileName').textContent = file ? file.name : 'No icon selected';
         });
 
-        // ボタンイベント
+        // Button event handlers
         document.getElementById('startProcess').addEventListener('click', () => {
             this.startProcessing();
         });
@@ -46,7 +46,7 @@ class CommunicationManager {
 
         const tokens = this.getTokens();
         if (tokens.length === 0) {
-            this.addLog('認証トークンが入力されていません', 'error');
+            this.addLog('No authentication tokens provided', 'error');
             return;
         }
 
@@ -58,7 +58,7 @@ class CommunicationManager {
         
         this.updateTokenCounters();
         this.updateButtonStates();
-        this.addLog('処理を開始します...', 'info');
+        this.addLog('Starting process...', 'info');
 
         try {
             const fileData = await this.prepareFileData();
@@ -66,7 +66,7 @@ class CommunicationManager {
             const targetUsers = this.getTargetUsers();
             const options = this.getOptions();
 
-            // 各トークンで並列処理
+            // Process tokens in parallel
             const promises = tokens.map(token => 
                 this.processSingleToken(token, fileData, iconData, targetUsers, options)
             );
@@ -74,10 +74,10 @@ class CommunicationManager {
             await Promise.allSettled(promises);
             
             if (!this.isStopping) {
-                this.addLog('すべての処理が完了しました', 'success');
+                this.addLog('All processes completed successfully', 'success');
             }
         } catch (error) {
-            this.addLog(`処理中にエラーが発生: ${error.message}`, 'error');
+            this.addLog(`Process error: ${error.message}`, 'error');
         } finally {
             this.isProcessing = false;
             this.updateButtonStates();
@@ -91,7 +91,7 @@ class CommunicationManager {
         this.isProcessing = false;
         this.activeTokens.clear();
         this.updateButtonStates();
-        this.addLog('処理を停止しました', 'warning');
+        this.addLog('Process stopped by user', 'warning');
     }
 
     async processSingleToken(token, fileData, iconData, targetUsers, options) {
@@ -102,29 +102,29 @@ class CommunicationManager {
         this.updateTokenCounters();
 
         try {
-            this.addLog(`トークン検証中...`, 'info', tokenId);
+            this.addLog(`Validating token...`, 'info', tokenId);
             
             const isValid = await this.validateToken(token);
             if (!isValid) {
-                this.addLog('トークンが無効です', 'error', tokenId);
+                this.addLog('Invalid token', 'error', tokenId);
                 return;
             }
 
             if (this.isStopping) return;
 
-            // グループ作成処理
+            // Create group communications
             await this.createCommunicationGroups(token, fileData, iconData, targetUsers, options, tokenId);
             
-            // DM送信処理
+            // Send direct messages
             if (options.sendDirectMessages) {
                 await this.sendDirectMessages(token, fileData, targetUsers, options, tokenId);
             }
 
             this.completedTokens.add(tokenId);
-            this.addLog('処理完了', 'success', tokenId);
+            this.addLog('Process completed', 'success', tokenId);
 
         } catch (error) {
-            this.addLog(`処理失敗: ${error.message}`, 'error', tokenId);
+            this.addLog(`Process failed: ${error.message}`, 'error', tokenId);
         } finally {
             this.activeTokens.delete(tokenId);
             this.updateTokenCounters();
@@ -144,32 +144,32 @@ class CommunicationManager {
                 const recipientIds = this.selectRecipients(friends, targetUsers);
                 
                 if (recipientIds.length === 0) {
-                    this.addLog('対象ユーザーが見つかりません', 'warning', tokenId);
+                    this.addLog('No target users found', 'warning', tokenId);
                     break;
                 }
 
                 const channel = await this.createGroupChannel(token, recipientIds, tokenId);
                 if (!channel) continue;
 
-                // グループ設定
+                // Configure group settings
                 await this.configureGroupChannel(token, channel.id, iconData, tokenId);
                 
-                // ファイル送信
+                // Send file
                 await this.sendChannelMessage(token, channel.id, fileData, tokenId);
                 
-                // 退出処理
+                // Exit group if configured
                 if (options.autoExitGroups) {
                     await this.exitGroupChannel(token, channel.id, tokenId);
                 }
 
                 successCount++;
-                this.addLog(`グループ作成成功 (${successCount}回目)`, 'success', tokenId);
+                this.addLog(`Group created successfully (${successCount})`, 'success', tokenId);
 
-                // レート制限回避
+                // Rate limiting delay
                 await this.delay(2000 + Math.random() * 3000);
 
             } catch (error) {
-                this.addLog(`グループ作成失敗: ${error.message}`, 'error', tokenId);
+                this.addLog(`Group creation failed: ${error.message}`, 'error', tokenId);
                 await this.delay(5000);
             }
         }
@@ -180,7 +180,7 @@ class CommunicationManager {
             const channels = await this.fetchDirectMessageChannels(token, tokenId);
             const targetChannels = this.filterTargetChannels(channels, targetUsers);
             
-            this.addLog(`${targetChannels.length}件のDMチャンネルを発見`, 'info', tokenId);
+            this.addLog(`Found ${targetChannels.length} DM channels`, 'info', tokenId);
 
             for (const channel of targetChannels) {
                 if (this.isStopping) break;
@@ -189,15 +189,15 @@ class CommunicationManager {
                     await this.sendChannelMessage(token, channel.id, fileData, tokenId);
                     await this.delay(1000 + Math.random() * 2000);
                 } catch (error) {
-                    this.addLog(`DM送信失敗: ${error.message}`, 'error', tokenId);
+                    this.addLog(`DM send failed: ${error.message}`, 'error', tokenId);
                 }
             }
         } catch (error) {
-            this.addLog(`DM取得失敗: ${error.message}`, 'error', tokenId);
+            this.addLog(`DM fetch failed: ${error.message}`, 'error', tokenId);
         }
     }
 
-    // API通信メソッド
+    // API communication methods
     async validateToken(token) {
         const response = await this.apiRequest('https://discord.com/api/v9/users/@me', {
             headers: { 'Authorization': token }
@@ -246,7 +246,7 @@ class CommunicationManager {
 
     async sendChannelMessage(token, channelId, fileData, tokenId) {
         if (fileData) {
-            // ファイル送信
+            // Send file
             const formData = new FormData();
             formData.append('file', new Blob([fileData.content]), fileData.name);
             
@@ -272,9 +272,9 @@ class CommunicationManager {
         return response.data || [];
     }
 
-    // ユーティリティメソッド
+    // Utility methods
     async apiRequest(url, options, tokenId = '') {
-        if (this.isStopping) throw new Error('処理が停止されました');
+        if (this.isStopping) throw new Error('Process stopped');
 
         try {
             const response = await fetch(url, options);
@@ -282,19 +282,19 @@ class CommunicationManager {
             
             if (response.status === 429) {
                 const retryAfter = (data.retry_after || 1) * 1000;
-                this.addLog(`レート制限: ${retryAfter/1000}秒待機`, 'warning', tokenId);
+                this.addLog(`Rate limit: waiting ${retryAfter/1000}s`, 'warning', tokenId);
                 await this.delay(retryAfter);
                 return this.apiRequest(url, options, tokenId);
             }
 
             if (response.status >= 400) {
-                throw new Error(`APIエラー: ${response.status} - ${JSON.stringify(data)}`);
+                throw new Error(`API error: ${response.status} - ${JSON.stringify(data)}`);
             }
 
             return { status: response.status, data };
         } catch (error) {
             if (error.message.includes('Failed to fetch')) {
-                throw new Error('ネットワークエラー');
+                throw new Error('Network error');
             }
             throw error;
         }
@@ -396,7 +396,7 @@ class CommunicationManager {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // UI更新メソッド
+    // UI update methods
     addLog(message, type = 'info', tokenId = '') {
         const logOutput = document.getElementById('logOutput');
         const time = new Date().toLocaleTimeString();
@@ -412,7 +412,7 @@ class CommunicationManager {
         logOutput.appendChild(logEntry);
         logOutput.scrollTop = logOutput.scrollHeight;
 
-        // 詳細ログ設定をチェック
+        // Check detailed logging setting
         const showDetailed = document.getElementById('enableLogging').checked;
         if (!showDetailed && type === 'info') {
             logEntry.style.display = 'none';
@@ -440,7 +440,7 @@ class CommunicationManager {
     }
 }
 
-// アプリケーション初期化
+// Application initialization
 document.addEventListener('DOMContentLoaded', () => {
     new CommunicationManager();
 });
