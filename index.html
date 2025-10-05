@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>コミュニケーションマネージャー</title>
+    <title>Communication Manager</title>
     <style>
         * {
             margin: 0;
@@ -13,9 +13,29 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .video-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            object-fit: cover;
+        }
+
+        .video-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: -1;
         }
 
         .container {
@@ -25,6 +45,9 @@
             border-radius: 15px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
             overflow: hidden;
+            position: relative;
+            margin-top: 20px;
+            margin-bottom: 20px;
         }
 
         .header {
@@ -255,89 +278,108 @@
             font-size: 0.9em;
             opacity: 0.8;
         }
+
+        .section-title {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
+    <video class="video-background" autoplay muted loop>
+        <source src="123.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <div class="video-overlay"></div>
+
     <div class="container">
         <div class="header">
-            <h1>コミュニケーションマネージャー</h1>
-            <p>効率的なグループ管理とメッセージ配信</p>
+            <h1>Communication Manager</h1>
+            <p>Efficient Group Management & Message Distribution</p>
         </div>
 
         <div class="content">
             <div class="panel">
-                <h2>設定パネル</h2>
+                <h2>Configuration Panel</h2>
                 
                 <div class="token-counter">
                     <div class="counter-grid">
                         <div class="counter-item">
                             <div class="counter-value" id="totalTokens">0</div>
-                            <div class="counter-label">トークン数</div>
+                            <div class="counter-label">Total Tokens</div>
                         </div>
                         <div class="counter-item">
                             <div class="counter-value" id="activeTokens">0</div>
-                            <div class="counter-label">実行中</div>
+                            <div class="counter-label">Active</div>
                         </div>
                         <div class="counter-item">
                             <div class="counter-value" id="completedTokens">0</div>
-                            <div class="counter-label">完了</div>
+                            <div class="counter-label">Completed</div>
                         </div>
                     </div>
                 </div>
 
+                <div class="section-title">Authentication</div>
                 <div class="form-group">
-                    <label for="authTokens">認証トークン (改行区切り)</label>
-                    <textarea id="authTokens" placeholder="複数のトークンを改行で入力してください..."></textarea>
+                    <label for="authTokens">Authentication Tokens (one per line)</label>
+                    <textarea id="authTokens" placeholder="Enter multiple tokens, one per line..."></textarea>
                 </div>
 
+                <div class="section-title">Target Configuration</div>
                 <div class="form-group">
-                    <label for="targetUsers">対象ユーザーID (オプション, カンマ区切り)</label>
-                    <input type="text" id="targetUsers" placeholder="ユーザーIDをカンマ区切りで入力...">
+                    <label for="targetUsers">Target User IDs (optional, comma separated)</label>
+                    <input type="text" id="targetUsers" placeholder="Enter user IDs separated by commas...">
                 </div>
 
+                <div class="section-title">Content Settings</div>
                 <div class="form-group">
-                    <label>送信ファイル</label>
+                    <label>File to Send</label>
                     <div class="file-upload" id="fileUploadArea">
-                        <div>クリックしてファイルを選択</div>
-                        <div class="file-name" id="fileName">ファイル未選択</div>
+                        <div>Click to select file</div>
+                        <div class="file-name" id="fileName">No file selected</div>
                     </div>
                     <input type="file" id="fileInput" style="display: none;">
                 </div>
 
                 <div class="form-group">
-                    <label>グループアイコン</label>
+                    <label>Group Icon</label>
                     <div class="file-upload" id="iconUploadArea">
-                        <div>クリックしてアイコン画像を選択</div>
-                        <div class="file-name" id="iconFileName">アイコン未選択</div>
+                        <div>Click to select icon image</div>
+                        <div class="file-name" id="iconFileName">No icon selected</div>
                     </div>
                     <input type="file" id="iconInput" style="display: none;" accept="image/*">
                 </div>
 
+                <div class="section-title">Options</div>
                 <div class="form-group">
                     <div class="checkbox-group">
                         <input type="checkbox" id="enableLogging">
-                        <label for="enableLogging">詳細ログを表示</label>
+                        <label for="enableLogging">Show detailed logs</label>
                     </div>
                     <div class="checkbox-group">
                         <input type="checkbox" id="enableDirectMessages">
-                        <label for="enableDirectMessages">ダイレクトメッセージを送信</label>
+                        <label for="enableDirectMessages">Send direct messages</label>
                     </div>
                     <div class="checkbox-group">
                         <input type="checkbox" id="autoExitGroups">
-                        <label for="autoExitGroups">グループ作成後に退出</label>
+                        <label for="autoExitGroups">Auto exit after group creation</label>
                     </div>
                 </div>
 
                 <div class="button-group">
-                    <button class="primary-btn" id="startProcess">処理開始</button>
-                    <button class="secondary-btn" id="stopProcess">処理停止</button>
+                    <button class="primary-btn" id="startProcess">Start Process</button>
+                    <button class="secondary-btn" id="stopProcess">Stop Process</button>
                 </div>
             </div>
 
             <div class="panel">
-                <h2>実行ログ</h2>
+                <h2>Execution Log</h2>
                 <div class="log-container" id="logOutput">
-                    <div class="log-entry status-info">準備完了</div>
+                    <div class="log-entry status-info">System ready</div>
                 </div>
             </div>
         </div>
