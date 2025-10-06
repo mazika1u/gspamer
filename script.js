@@ -134,7 +134,7 @@ class GroupSpammer {
     async createGroups(token, fileData, iconData, targetUsers, options, tokenId) {
         let successCount = 0;
         let attemptCount = 0;
-        const maxAttempts = 10;
+        const maxAttempts = 5;
 
         while (attemptCount < maxAttempts && !this.isStopping) {
             attemptCount++;
@@ -150,8 +150,8 @@ class GroupSpammer {
                 // 対象ユーザーを選択
                 const recipientIds = this.selectFriends(friends, targetUsers);
                 
-                if (recipientIds.length === 0) {
-                    this.addLog('グループ作成に適したユーザーが見つかりません', 'warning', tokenId);
+                if (recipientIds.length < 2) {
+                    this.addLog('グループ作成には最低2人のユーザーが必要です', 'warning', tokenId);
                     break;
                 }
 
@@ -166,7 +166,10 @@ class GroupSpammer {
 
                 this.addLog(`グループDMを作成しました: ${channel.id}`, 'success', tokenId);
 
-                // グループ名とアイコンを設定
+                // グループ名を設定
+                await this.setGroupName(token, channel.id, tokenId);
+
+                // アイコンを設定
                 if (iconData) {
                     await this.setGroupIcon(token, channel.id, iconData, tokenId);
                 }
@@ -185,11 +188,11 @@ class GroupSpammer {
                 this.addLog(`グループ作成成功 (${successCount}個目)`, 'success', tokenId);
 
                 // レート制限回避
-                await this.delay(3000 + Math.random() * 2000);
+                await this.delay(5000);
 
             } catch (error) {
                 this.addLog(`グループ作成エラー: ${error.message}`, 'error', tokenId);
-                await this.delay(5000);
+                await this.delay(3000);
             }
         }
     }
@@ -208,7 +211,7 @@ class GroupSpammer {
                 try {
                     await this.sendFileToChannel(token, channel.id, fileData, tokenId);
                     sentCount++;
-                    await this.delay(1500 + Math.random() * 1000);
+                    await this.delay(2000);
                 } catch (error) {
                     this.addLog(`DM送信失敗: ${error.message}`, 'error', tokenId);
                 }
@@ -223,15 +226,15 @@ class GroupSpammer {
     // API通信メソッド
     async validateToken(token) {
         try {
-            const response = await this.apiCall('https://discord.com/api/v9/users/@me', {
+            const response = await fetch('https://discord.com/api/v9/users/@me', {
                 headers: { 
-                    'Authorization': token,
-                    'Content-Type': 'application/json'
+                    'Authorization': token
                 }
             });
             
-            if (response.status === 200 && response.data.id) {
-                this.addLog(`トークン有効: ${response.data.username}`, 'success');
+            if (response.status === 200) {
+                const data = await response.json();
+                this.addLog(`トークン有効: ${data.username}`, 'success');
                 return true;
             }
             return false;
@@ -243,20 +246,26 @@ class GroupSpammer {
 
     async getFriends(token, tokenId) {
         try {
-            const response = await this.apiCall('https://discord.com/api/v9/users/@me/relationships', {
+            const response = await fetch('https://discord.com/api/v9/users/@me/relationships', {
                 headers: { 
-                    'Authorization': token,
-                    'Content-Type': 'application/json'
+                    'Authorization': token
                 }
-            }, tokenId);
+            });
 
-            // フレンドのみをフィルタリング (type: 1 = フレンド, type: 2 = ブロック, type: 3 = 保留中)
-            if (response.data && Array.isArray(response.data)) {
-                const friends = response.data.filter(relationship => 
-                    relationship.type === 1 && 
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // フレンドのみをフィルタリング
+            if (Array.isArray(data)) {
+                const friends = data.filter(relationship => 
+                    relationship.type === 1 && // type 1 = フレンド
                     relationship.user && 
                     relationship.user.id
                 );
+                this.addLog(`${friends.length}人のフレンドを取得しました`, 'info', tokenId);
                 return friends.map(friend => friend.user);
             }
             return [];
@@ -268,7 +277,7 @@ class GroupSpammer {
 
     async createGroupDM(token, recipientIds, tokenId) {
         try {
-            const response = await this.apiCall('https://discord.com/api/v9/users/@me/channels', {
+            const response = await fetch('https://discord.com/api/v9/users/@me/channels', {
                 method: 'POST',
                 headers: { 
                     'Authorization': token,
@@ -277,11 +286,35 @@ class GroupSpammer {
                 body: JSON.stringify({ 
                     recipients: recipientIds 
                 })
-            }, tokenId);
+            });
 
-            return response.data;
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`HTTP ${response.status}: ${errorData.message || 'Unknown error'}`);
+            }
+
+            const data = await response.json();
+            return data;
         } catch (error) {
-            throw new Error(`グループDM作成失敗: ${error.message}`);
+            this.addLog(`グループDM作成失敗: ${error.message}`, 'error', tokenId);
+            return null;
+        }
+    }
+
+    async setGroupName(token, channelId, tokenId) {
+        try {
+            await fetch(`https://discord.com/api/v9/channels/${channelId}`, {
+                method: 'PATCH',
+                headers: { 
+                    'Authorization': token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    name: `group-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+                })
+            });
+        } catch (error) {
+            this.addLog(`グループ名設定失敗: ${error.message}`, 'warning', tokenId);
         }
     }
 
@@ -290,17 +323,18 @@ class GroupSpammer {
             // アイコンデータからdata:image/png;base64,の部分を除去
             const base64Data = iconData.replace(/^data:image\/\w+;base64,/, '');
             
-            await this.apiCall(`https://discord.com/api/v9/channels/${channelId}`, {
+            await fetch(`https://discord.com/api/v9/channels/${channelId}`, {
                 method: 'PATCH',
                 headers: { 
                     'Authorization': token,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ 
-                    name: `group-${Date.now()}`,
                     icon: `data:image/png;base64,${base64Data}`
                 })
-            }, tokenId);
+            });
+            
+            this.addLog('グループアイコンを設定しました', 'success', tokenId);
         } catch (error) {
             this.addLog(`アイコン設定失敗: ${error.message}`, 'warning', tokenId);
         }
@@ -312,17 +346,18 @@ class GroupSpammer {
             const blob = new Blob([fileData.content], { type: fileData.type });
             formData.append('file', blob, fileData.name);
             
-            // メッセージ内容も追加（オプション）
-            formData.append('content', ' ');
-            
-            await this.apiCall(`https://discord.com/api/v9/channels/${channelId}/messages`, {
+            const response = await fetch(`https://discord.com/api/v9/channels/${channelId}/messages`, {
                 method: 'POST',
                 headers: { 
                     'Authorization': token
                     // Content-TypeはFormDataが自動設定
                 },
                 body: formData
-            }, tokenId);
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
             
             this.addLog(`ファイル送信成功: ${fileData.name}`, 'success', tokenId);
         } catch (error) {
@@ -332,15 +367,18 @@ class GroupSpammer {
 
     async leaveGroup(token, channelId, tokenId) {
         try {
-            await this.apiCall(`https://discord.com/api/v9/channels/${channelId}`, {
+            const response = await fetch(`https://discord.com/api/v9/channels/${channelId}`, {
                 method: 'DELETE',
                 headers: { 
-                    'Authorization': token,
-                    'Content-Type': 'application/json'
+                    'Authorization': token
                 }
-            }, tokenId);
-            
-            this.addLog('グループから退出しました', 'success', tokenId);
+            });
+
+            if (response.ok) {
+                this.addLog('グループから退出しました', 'success', tokenId);
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
         } catch (error) {
             this.addLog(`グループ退出失敗: ${error.message}`, 'warning', tokenId);
         }
@@ -348,17 +386,22 @@ class GroupSpammer {
 
     async getDMChannels(token, tokenId) {
         try {
-            const response = await this.apiCall('https://discord.com/api/v9/users/@me/channels', {
+            const response = await fetch('https://discord.com/api/v9/users/@me/channels', {
                 headers: { 
-                    'Authorization': token,
-                    'Content-Type': 'application/json'
+                    'Authorization': token
                 }
-            }, tokenId);
+            });
 
-            // DMチャンネルのみをフィルタリング (type: 1 = DM, type: 3 = グループDM)
-            if (response.data && Array.isArray(response.data)) {
-                return response.data.filter(channel => 
-                    channel.type === 1 && // 1: DM, 3: グループDM
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // DMチャンネルのみをフィルタリング
+            if (Array.isArray(data)) {
+                return data.filter(channel => 
+                    channel.type === 1 && // 1: DM
                     channel.recipients && 
                     channel.recipients.length > 0
                 );
@@ -366,35 +409,6 @@ class GroupSpammer {
             return [];
         } catch (error) {
             throw new Error(`DMチャンネル取得失敗: ${error.message}`);
-        }
-    }
-
-    // API呼び出しユーティリティ
-    async apiCall(url, options, tokenId = '') {
-        if (this.isStopping) throw new Error('処理が停止されました');
-
-        try {
-            const response = await fetch(url, options);
-            const data = await response.json().catch(() => ({}));
-            
-            // レート制限処理
-            if (response.status === 429) {
-                const retryAfter = (data.retry_after || 1) * 1000;
-                this.addLog(`レート制限: ${retryAfter/1000}秒待機`, 'warning', tokenId);
-                await this.delay(retryAfter);
-                return this.apiCall(url, options, tokenId);
-            }
-
-            if (response.status >= 400) {
-                throw new Error(`HTTP ${response.status}: ${JSON.stringify(data)}`);
-            }
-
-            return { status: response.status, data };
-        } catch (error) {
-            if (error.message.includes('Failed to fetch')) {
-                throw new Error('ネットワークエラー');
-            }
-            throw error;
         }
     }
 
@@ -409,9 +423,17 @@ class GroupSpammer {
             );
         }
 
-        // ランダムに最大9人選択
+        // ランダムに最大9人選択（グループDMは2-10人）
         const shuffled = [...filteredFriends].sort(() => 0.5 - Math.random());
-        return shuffled.slice(0, 9).map(friend => friend.id);
+        const selected = shuffled.slice(0, 9);
+        
+        // 選択したユーザーIDをログに出力
+        if (selected.length > 0) {
+            const selectedIds = selected.map(f => f.id).join(', ');
+            this.addLog(`選択したユーザー: ${selectedIds}`, 'info');
+        }
+        
+        return selected.map(friend => friend.id);
     }
 
     filterChannels(channels, targetUsers) {
