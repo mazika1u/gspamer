@@ -1,593 +1,585 @@
-class GroupSpammer {
-    constructor() {
-        this.isProcessing = false;
-        this.isStopping = false;
-        this.activeTokens = new Set();
-        this.completedTokens = new Set();
-        this.allTokens = new Set();
-        
-        this.initializeEventListeners();
-        this.updateTokenCounters();
-    }
+// script.js
 
-    initializeEventListeners() {
-        // ファイルアップロード
-        document.getElementById('fileUploadArea').addEventListener('click', () => {
-            document.getElementById('fileInput').click();
+// グローバル変数
+let isRunning = false;
+let groupsCreated = 0;
+let messagesSent = 0;
+let progressInterval;
+let currentOperation = null;
+let showAllLogs = false;
+let runSpamDm = false;
+let leaveGroup = false;
+let stopSpam = false;
+
+// DOM読み込み完了後の初期化
+document.addEventListener('DOMContentLoaded', function() {
+    initializeEventListeners();
+    testPing();
+    initializeVideoControls();
+});
+
+// イベントリスナーの初期化
+function initializeEventListeners() {
+    // ファイル選択
+    document.getElementById('messageFile').addEventListener('change', function(e) {
+        const fileName = e.target.files[0] ? e.target.files[0].name : '未選択';
+        document.getElementById('fileName').textContent = fileName;
+    });
+
+    // チェックボックスの初期状態を設定
+    document.getElementById('pingTestCheckbox').classList.add('checked');
+}
+
+// ビデオコントロールの初期化
+function initializeVideoControls() {
+    const video = document.getElementById('bgVideo');
+    // ビデオの読み込みが完了したら自動再生
+    video.addEventListener('loadeddata', function() {
+        video.play().catch(e => {
+            console.log('自動再生がブロックされました:', e);
         });
-
-        document.getElementById('fileInput').addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            document.getElementById('fileName').textContent = file ? file.name : 'ファイルが選択されていません';
-        });
-
-        // アイコンアップロード
-        document.getElementById('iconUploadArea').addEventListener('click', () => {
-            document.getElementById('iconInput').click();
-        });
-
-        document.getElementById('iconInput').addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            document.getElementById('iconFileName').textContent = file ? file.name : 'アイコンなし';
-        });
-
-        // ボタンイベント
-        document.getElementById('startProcess').addEventListener('click', () => {
-            this.startProcessing();
-        });
-
-        document.getElementById('stopProcess').addEventListener('click', () => {
-            this.stopProcessing();
-        });
-    }
-
-    async startProcessing() {
-        if (this.isProcessing) return;
-
-        const tokens = this.getTokens();
-        if (tokens.length === 0) {
-            this.addLog('トークンが入力されていません', 'error');
-            return;
-        }
-
-        this.isProcessing = true;
-        this.isStopping = false;
-        this.activeTokens.clear();
-        this.completedTokens.clear();
-        this.allTokens = new Set(tokens);
-        
-        this.updateTokenCounters();
-        this.updateButtonStates();
-        this.addLog('処理を開始します...', 'info');
-
-        try {
-            const fileData = await this.prepareFileData();
-            const iconData = await this.prepareIconData();
-            const targetUsers = this.getTargetUsers();
-            const options = this.getOptions();
-
-            // 各トークンで並列処理
-            const promises = tokens.map(token => 
-                this.processSingleToken(token, fileData, iconData, targetUsers, options)
-            );
-
-            await Promise.allSettled(promises);
-            
-            if (!this.isStopping) {
-                this.addLog('すべての処理が完了しました', 'success');
-            }
-        } catch (error) {
-            this.addLog(`処理中にエラーが発生: ${error.message}`, 'error');
-        } finally {
-            this.isProcessing = false;
-            this.updateButtonStates();
-        }
-    }
-
-    stopProcessing() {
-        if (!this.isProcessing) return;
-        
-        this.isStopping = true;
-        this.isProcessing = false;
-        this.activeTokens.clear();
-        this.updateButtonStates();
-        this.addLog('処理を停止しました', 'warning');
-    }
-
-    async processSingleToken(token, fileData, iconData, targetUsers, options) {
-        if (this.isStopping) return;
-
-        const tokenId = this.hashToken(token);
-        this.activeTokens.add(tokenId);
-        this.updateTokenCounters();
-
-        try {
-            this.addLog(`トークン検証中...`, 'info', tokenId);
-            
-            const isValid = await this.validateToken(token);
-            if (!isValid) {
-                this.addLog('トークンが無効です', 'error', tokenId);
-                return;
-            }
-
-            if (this.isStopping) return;
-
-            // グループ作成処理
-            await this.createGroups(token, fileData, iconData, targetUsers, options, tokenId);
-            
-            // DM送信処理
-            if (options.sendDirectMessages && fileData) {
-                await this.sendDirectMessages(token, fileData, targetUsers, options, tokenId);
-            }
-
-            this.completedTokens.add(tokenId);
-            this.addLog('処理完了', 'success', tokenId);
-
-        } catch (error) {
-            this.addLog(`処理失敗: ${error.message}`, 'error', tokenId);
-        } finally {
-            this.activeTokens.delete(tokenId);
-            this.updateTokenCounters();
-        }
-    }
-
-    async createGroups(token, fileData, iconData, targetUsers, options, tokenId) {
-        let successCount = 0;
-        let attemptCount = 0;
-        const maxAttempts = 5;
-
-        while (attemptCount < maxAttempts && !this.isStopping) {
-            attemptCount++;
-            
-            try {
-                // フレンドリストを取得
-                const friends = await this.getFriends(token, tokenId);
-                if (!friends || friends.length === 0) {
-                    this.addLog('フレンドリストが空です', 'warning', tokenId);
-                    break;
-                }
-
-                // 対象ユーザーを選択
-                const recipientIds = this.selectFriends(friends, targetUsers);
-                
-                if (recipientIds.length < 2) {
-                    this.addLog('グループ作成には最低2人のユーザーが必要です', 'warning', tokenId);
-                    break;
-                }
-
-                this.addLog(`${recipientIds.length}人のユーザーでグループ作成を試みます`, 'info', tokenId);
-
-                // グループDMを作成
-                const channel = await this.createGroupDM(token, recipientIds, tokenId);
-                if (!channel) {
-                    this.addLog('グループ作成に失敗しました', 'error', tokenId);
-                    continue;
-                }
-
-                this.addLog(`グループDMを作成しました: ${channel.id}`, 'success', tokenId);
-
-                // グループ名を設定
-                await this.setGroupName(token, channel.id, tokenId);
-
-                // アイコンを設定
-                if (iconData) {
-                    await this.setGroupIcon(token, channel.id, iconData, tokenId);
-                }
-
-                // ファイルを送信
-                if (fileData) {
-                    await this.sendFileToChannel(token, channel.id, fileData, tokenId);
-                }
-
-                // 自動退出
-                if (options.autoExitGroups) {
-                    await this.leaveGroup(token, channel.id, tokenId);
-                }
-
-                successCount++;
-                this.addLog(`グループ作成成功 (${successCount}個目)`, 'success', tokenId);
-
-                // レート制限回避
-                await this.delay(5000);
-
-            } catch (error) {
-                this.addLog(`グループ作成エラー: ${error.message}`, 'error', tokenId);
-                await this.delay(3000);
-            }
-        }
-    }
-
-    async sendDirectMessages(token, fileData, targetUsers, options, tokenId) {
-        try {
-            const channels = await this.getDMChannels(token, tokenId);
-            const targetChannels = this.filterChannels(channels, targetUsers);
-            
-            this.addLog(`${targetChannels.length}件のDMチャンネルにファイルを送信します`, 'info', tokenId);
-
-            let sentCount = 0;
-            for (const channel of targetChannels) {
-                if (this.isStopping) break;
-                
-                try {
-                    await this.sendFileToChannel(token, channel.id, fileData, tokenId);
-                    sentCount++;
-                    await this.delay(2000);
-                } catch (error) {
-                    this.addLog(`DM送信失敗: ${error.message}`, 'error', tokenId);
-                }
-            }
-            
-            this.addLog(`${sentCount}件のDMにファイルを送信しました`, 'success', tokenId);
-        } catch (error) {
-            this.addLog(`DM取得失敗: ${error.message}`, 'error', tokenId);
-        }
-    }
-
-    // API通信メソッド
-    async validateToken(token) {
-        try {
-            const response = await fetch('https://discord.com/api/v9/users/@me', {
-                headers: { 
-                    'Authorization': token
-                }
-            });
-            
-            if (response.status === 200) {
-                const data = await response.json();
-                this.addLog(`トークン有効: ${data.username}`, 'success');
-                return true;
-            }
-            return false;
-        } catch (error) {
-            this.addLog(`トークン検証エラー: ${error.message}`, 'error');
-            return false;
-        }
-    }
-
-    async getFriends(token, tokenId) {
-        try {
-            const response = await fetch('https://discord.com/api/v9/users/@me/relationships', {
-                headers: { 
-                    'Authorization': token
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            // フレンドのみをフィルタリング
-            if (Array.isArray(data)) {
-                const friends = data.filter(relationship => 
-                    relationship.type === 1 && // type 1 = フレンド
-                    relationship.user && 
-                    relationship.user.id
-                );
-                this.addLog(`${friends.length}人のフレンドを取得しました`, 'info', tokenId);
-                return friends.map(friend => friend.user);
-            }
-            return [];
-        } catch (error) {
-            this.addLog(`フレンドリスト取得エラー: ${error.message}`, 'error', tokenId);
-            return [];
-        }
-    }
-
-    async createGroupDM(token, recipientIds, tokenId) {
-        try {
-            const response = await fetch('https://discord.com/api/v9/users/@me/channels', {
-                method: 'POST',
-                headers: { 
-                    'Authorization': token,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    recipients: recipientIds 
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`HTTP ${response.status}: ${errorData.message || 'Unknown error'}`);
-            }
-
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            this.addLog(`グループDM作成失敗: ${error.message}`, 'error', tokenId);
-            return null;
-        }
-    }
-
-    async setGroupName(token, channelId, tokenId) {
-        try {
-            await fetch(`https://discord.com/api/v9/channels/${channelId}`, {
-                method: 'PATCH',
-                headers: { 
-                    'Authorization': token,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    name: `group-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
-                })
-            });
-        } catch (error) {
-            this.addLog(`グループ名設定失敗: ${error.message}`, 'warning', tokenId);
-        }
-    }
-
-    async setGroupIcon(token, channelId, iconData, tokenId) {
-        try {
-            // アイコンデータからdata:image/png;base64,の部分を除去
-            const base64Data = iconData.replace(/^data:image\/\w+;base64,/, '');
-            
-            await fetch(`https://discord.com/api/v9/channels/${channelId}`, {
-                method: 'PATCH',
-                headers: { 
-                    'Authorization': token,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    icon: `data:image/png;base64,${base64Data}`
-                })
-            });
-            
-            this.addLog('グループアイコンを設定しました', 'success', tokenId);
-        } catch (error) {
-            this.addLog(`アイコン設定失敗: ${error.message}`, 'warning', tokenId);
-        }
-    }
-
-    async sendFileToChannel(token, channelId, fileData, tokenId) {
-        try {
-            const formData = new FormData();
-            const blob = new Blob([fileData.content], { type: fileData.type });
-            formData.append('file', blob, fileData.name);
-            
-            const response = await fetch(`https://discord.com/api/v9/channels/${channelId}/messages`, {
-                method: 'POST',
-                headers: { 
-                    'Authorization': token
-                    // Content-TypeはFormDataが自動設定
-                },
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            
-            this.addLog(`ファイル送信成功: ${fileData.name}`, 'success', tokenId);
-        } catch (error) {
-            throw new Error(`ファイル送信失敗: ${error.message}`);
-        }
-    }
-
-    async leaveGroup(token, channelId, tokenId) {
-        try {
-            const response = await fetch(`https://discord.com/api/v9/channels/${channelId}`, {
-                method: 'DELETE',
-                headers: { 
-                    'Authorization': token
-                }
-            });
-
-            if (response.ok) {
-                this.addLog('グループから退出しました', 'success', tokenId);
-            } else {
-                throw new Error(`HTTP ${response.status}`);
-            }
-        } catch (error) {
-            this.addLog(`グループ退出失敗: ${error.message}`, 'warning', tokenId);
-        }
-    }
-
-    async getDMChannels(token, tokenId) {
-        try {
-            const response = await fetch('https://discord.com/api/v9/users/@me/channels', {
-                headers: { 
-                    'Authorization': token
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            // DMチャンネルのみをフィルタリング
-            if (Array.isArray(data)) {
-                return data.filter(channel => 
-                    channel.type === 1 && // 1: DM
-                    channel.recipients && 
-                    channel.recipients.length > 0
-                );
-            }
-            return [];
-        } catch (error) {
-            throw new Error(`DMチャンネル取得失敗: ${error.message}`);
-        }
-    }
-
-    // ユーティリティメソッド
-    selectFriends(friends, targetUsers) {
-        let filteredFriends = friends;
-
-        // 特定ユーザーIDが指定されている場合はフィルタリング
-        if (targetUsers && targetUsers.length > 0) {
-            filteredFriends = friends.filter(friend => 
-                targetUsers.includes(friend.id)
-            );
-        }
-
-        // ランダムに最大9人選択（グループDMは2-10人）
-        const shuffled = [...filteredFriends].sort(() => 0.5 - Math.random());
-        const selected = shuffled.slice(0, 9);
-        
-        // 選択したユーザーIDをログに出力
-        if (selected.length > 0) {
-            const selectedIds = selected.map(f => f.id).join(', ');
-            this.addLog(`選択したユーザー: ${selectedIds}`, 'info');
-        }
-        
-        return selected.map(friend => friend.id);
-    }
-
-    filterChannels(channels, targetUsers) {
-        if (targetUsers && targetUsers.length > 0) {
-            return channels.filter(channel => 
-                channel.recipients.some(recipient => 
-                    targetUsers.includes(recipient.id)
-                )
-            );
-        }
-        return channels;
-    }
-
-    async prepareFileData() {
-        const fileInput = document.getElementById('fileInput');
-        const file = fileInput.files[0];
-        
-        if (!file) {
-            this.addLog('ファイルが選択されていません', 'warning');
-            return null;
-        }
-
-        try {
-            const content = await this.readFileAsArrayBuffer(file);
-            return {
-                name: file.name,
-                content: content,
-                type: file.type,
-                size: file.size
-            };
-        } catch (error) {
-            this.addLog(`ファイル読み込みエラー: ${error.message}`, 'error');
-            return null;
-        }
-    }
-
-    async prepareIconData() {
-        const iconInput = document.getElementById('iconInput');
-        const file = iconInput.files[0];
-        
-        if (!file) return null;
-
-        try {
-            return await this.readFileAsDataURL(file);
-        } catch (error) {
-            this.addLog(`アイコン読み込みエラー: ${error.message}`, 'error');
-            return null;
-        }
-    }
-
-    readFileAsArrayBuffer(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました'));
-            reader.readAsArrayBuffer(file);
-        });
-    }
-
-    readFileAsDataURL(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(new Error('アイコンの読み込みに失敗しました'));
-            reader.readAsDataURL(file);
-        });
-    }
-
-    getTokens() {
-        const tokensText = document.getElementById('authTokens').value;
-        return tokensText
-            .split(/[\n,]+/)
-            .map(token => token.trim())
-            .filter(token => token.length > 0 && token !== 'undefined');
-    }
-
-    getTargetUsers() {
-        const usersText = document.getElementById('targetUsers').value;
-        return usersText
-            .split(/[\n,]+/)
-            .map(id => id.trim())
-            .filter(id => id.length > 0);
-    }
-
-    getOptions() {
-        return {
-            sendDirectMessages: document.getElementById('enableDirectMessages').checked,
-            autoExitGroups: document.getElementById('autoExitGroups').checked,
-            detailedLogging: document.getElementById('enableLogging').checked
-        };
-    }
-
-    hashToken(token) {
-        // トークンの簡易ハッシュ（表示用）
-        let hash = 0;
-        for (let i = 0; i < token.length; i++) {
-            hash = ((hash << 5) - hash) + token.charCodeAt(i);
-            hash |= 0;
-        }
-        return Math.abs(hash).toString(16).substring(0, 6);
-    }
-
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    // UI更新メソッド
-    addLog(message, type = 'info', tokenId = '') {
-        const logOutput = document.getElementById('logOutput');
-        const time = new Date().toLocaleTimeString();
-        const tokenPrefix = tokenId ? `[${tokenId}] ` : '';
-        
-        const logEntry = document.createElement('div');
-        logEntry.className = `log-entry status-${type}`;
-        logEntry.innerHTML = `
-            <span class="log-time">[${time}]</span>
-            ${tokenPrefix}${message}
-        `;
-
-        logOutput.appendChild(logEntry);
-        logOutput.scrollTop = logOutput.scrollHeight;
-
-        // 詳細ログ設定をチェック
-        const showDetailed = document.getElementById('enableLogging').checked;
-        if (!showDetailed && type === 'info') {
-            logEntry.style.display = 'none';
-        }
-    }
-
-    updateTokenCounters() {
-        document.getElementById('totalTokens').textContent = this.allTokens.size;
-        document.getElementById('activeTokens').textContent = this.activeTokens.size;
-        document.getElementById('completedTokens').textContent = this.completedTokens.size;
-    }
-
-    updateButtonStates() {
-        const startBtn = document.getElementById('startProcess');
-        const stopBtn = document.getElementById('stopProcess');
-
-        startBtn.disabled = this.isProcessing;
-        stopBtn.disabled = !this.isProcessing;
-
-        if (this.isProcessing) {
-            startBtn.classList.add('loading');
-            startBtn.textContent = '実行中...';
-        } else {
-            startBtn.classList.remove('loading');
-            startBtn.textContent = 'じっこう';
-        }
+    });
+}
+
+// ビデオの再生/一時停止
+function toggleVideo() {
+    const video = document.getElementById('bgVideo');
+    const icon = document.getElementById('videoToggleIcon');
+    
+    if (video.paused) {
+        video.play();
+        icon.className = 'fas fa-pause';
+    } else {
+        video.pause();
+        icon.className = 'fas fa-play';
     }
 }
 
-// アプリケーション初期化
-document.addEventListener('DOMContentLoaded', () => {
-    window.groupSpammer = new GroupSpammer();
-    console.log('グループスパマー initialized');
-});
+// ミュート切り替え
+function toggleMute() {
+    const video = document.getElementById('bgVideo');
+    const icon = document.getElementById('volumeToggleIcon');
+    
+    video.muted = !video.muted;
+    icon.className = video.muted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+}
+
+// チェックボックスのトグル関数
+function toggleCheckbox(id) {
+    const checkbox = document.getElementById(id + 'Checkbox');
+    checkbox.classList.toggle('checked');
+    
+    switch(id) {
+        case 'showLogs':
+            showAllLogs = checkbox.classList.contains('checked');
+            break;
+        case 'spamDm':
+            runSpamDm = checkbox.classList.contains('checked');
+            break;
+        case 'leaveGroup':
+            leaveGroup = checkbox.classList.contains('checked');
+            break;
+        case 'pingTest':
+            if (checkbox.classList.contains('checked')) {
+                testPing();
+            }
+            break;
+    }
+}
+
+// Pingテスト関数
+async function testPing() {
+    const startTime = Date.now();
+    const pingValueElement = document.getElementById('pingValue');
+    const pingIndicator = document.querySelector('.ping-indicator');
+    
+    pingValueElement.textContent = '測定中...';
+    
+    try {
+        const response = await fetch('https://discord.com/api/v9/gateway', { method: 'HEAD' });
+        const ping = Date.now() - startTime;
+        
+        pingValueElement.textContent = ping;
+        
+        if (ping < 100) {
+            pingIndicator.className = 'ping-indicator ping-good';
+        } else if (ping < 300) {
+            pingIndicator.className = 'ping-indicator ping-medium';
+        } else {
+            pingIndicator.className = 'ping-indicator ping-bad';
+        }
+        
+        addLog(`Pingテスト: ${ping}ms`, 'success');
+    } catch (error) {
+        pingValueElement.textContent = 'エラー';
+        pingIndicator.className = 'ping-indicator ping-bad';
+        addLog('Pingテストに失敗しました: ' + error.message, 'error');
+    }
+}
+
+// ログ追加関数
+function addLog(message, type = 'info') {
+    const logBox = document.getElementById('logBox');
+    const timestamp = new Date().toLocaleTimeString();
+    
+    const logEntry = document.createElement('div');
+    logEntry.className = 'log-entry';
+    
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'log-time';
+    timeSpan.textContent = `[${timestamp}] `;
+    
+    const messageSpan = document.createElement('span');
+    messageSpan.className = `log-message log-${type}`;
+    messageSpan.textContent = message;
+    
+    logEntry.appendChild(timeSpan);
+    logEntry.appendChild(messageSpan);
+    logBox.appendChild(logEntry);
+    
+    logBox.scrollTop = logBox.scrollHeight;
+    
+    if (!showAllLogs && type === 'info') {
+        logEntry.style.display = 'none';
+    }
+}
+
+// 進捗バー更新関数
+function updateProgress() {
+    const groupCount = parseInt(document.getElementById('groupCount').value) || 10;
+    const messageCount = parseInt(document.getElementById('messageCount').value) || 5;
+    const totalOperations = groupCount * (1 + messageCount);
+    
+    const progress = ((groupsCreated * (1 + messageCount)) + messagesSent) / totalOperations * 100;
+    document.getElementById('progressBar').style.width = `${Math.min(progress, 100)}%`;
+}
+
+// 統計更新関数
+function updateStats() {
+    document.getElementById('groupsCreated').textContent = groupsCreated;
+    document.getElementById('messagesSent').textContent = messagesSent;
+    document.getElementById('floatGroups').textContent = groupsCreated;
+    document.getElementById('floatMessages').textContent = messagesSent;
+    
+    const successRate = groupsCreated > 0 ? Math.round((messagesSent / (groupsCreated * 5)) * 100) : 100;
+    document.getElementById('successRate').textContent = `${successRate}%`;
+    
+    updateProgress();
+}
+
+// 通知表示関数
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    
+    if (type === 'success') {
+        notification.style.borderLeftColor = '#57f287';
+    } else if (type === 'error') {
+        notification.style.borderLeftColor = '#ed4245';
+    } else if (type === 'warning') {
+        notification.style.borderLeftColor = '#fee75c';
+    }
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// メッセージファイルの読み込み関数
+function loadMessageFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            try {
+                const content = e.target.result;
+                
+                if (file.name.endsWith('.json')) {
+                    const messages = JSON.parse(content);
+                    resolve(messages);
+                } else {
+                    const messages = content.split('\n').filter(line => line.trim() !== '');
+                    resolve(messages);
+                }
+            } catch (error) {
+                reject(new Error('ファイルの読み込みに失敗しました: ' + error.message));
+            }
+        };
+        
+        reader.onerror = function() {
+            reject(new Error('ファイルの読み込みに失敗しました'));
+        };
+        
+        reader.readAsText(file);
+    });
+}
+
+// Base64エンコード関数
+function toBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// トークン検証関数
+async function isTokenValid(token) {
+    try {
+        const response = await fetch('https://discord.com/api/v9/users/@me', {
+            headers: { 'Authorization': token }
+        });
+        
+        if (response.status < 300) {
+            const userData = await response.json();
+            addLog(`✅ トークン有効：${userData.username}`, 'success');
+            return true;
+        } else {
+            addLog(`❌ トークン無効（status ${response.status}）`, 'error');
+            return false;
+        }
+    } catch (error) {
+        addLog(`❌ トークン検証エラー: ${error.message}`, 'error');
+        return false;
+    }
+}
+
+// Discord APIを使用してグループDMを作成
+async function createGroupDM(token, userIds, groupName, iconData = null) {
+    try {
+        const response = await fetch('https://discord.com/api/v9/users/@me/channels', {
+            method: 'POST',
+            headers: {
+                'Authorization': token,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                recipients: userIds
+            })
+        });
+        
+        if (response.status === 429) {
+            const rateLimit = await response.json();
+            const waitTime = rateLimit.retry_after * 1000;
+            addLog(`⏳ グループ作成レート制限: ${rateLimit.retry_after}s`, 'warning');
+            await sleep(waitTime);
+            return await createGroupDM(token, userIds, groupName, iconData);
+        } else if (response.status === 401) {
+            throw new Error('無効なトークンです');
+        } else if (response.status === 403) {
+            throw new Error('友達のみグループDMを作成できます');
+        } else if (response.status === 400) {
+            throw new Error('無効なユーザーIDが含まれています');
+        } else if (!response.ok) {
+            throw new Error(`APIエラー: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const channelId = data.id;
+        
+        // グループ名を設定
+        if (groupName) {
+            await updateGroupDM(token, channelId, groupName, iconData);
+        }
+        
+        return channelId;
+    } catch (error) {
+        throw error;
+    }
+}
+
+// グループDMを更新（名前・アイコン設定）
+async function updateGroupDM(token, channelId, name, icon) {
+    try {
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (icon) updateData.icon = icon;
+        
+        const response = await fetch(`https://discord.com/api/v9/channels/${channelId}`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': token,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.status === 429) {
+            const rateLimit = await response.json();
+            const waitTime = rateLimit.retry_after * 1000;
+            addLog(`⏳ グループ編集レート制限: ${rateLimit.retry_after}s`, 'warning');
+            await sleep(waitTime);
+            return await updateGroupDM(token, channelId, name, icon);
+        }
+        
+        return response.ok;
+    } catch (error) {
+        addLog(`グループ更新エラー: ${error.message}`, 'error');
+        return false;
+    }
+}
+
+// メッセージを送信
+async function sendMessage(token, channelId, message) {
+    try {
+        const response = await fetch(`https://discord.com/api/v9/channels/${channelId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Authorization': token,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                content: message,
+                mobile_network_type: 'wifi',
+                tts: false,
+                flags: 0,
+                signal_strength: 0
+            })
+        });
+        
+        if (response.status === 429) {
+            const rateLimit = await response.json();
+            const waitTime = rateLimit.retry_after * 1000;
+            addLog(`⏳ メッセージ送信レート制限: ${rateLimit.retry_after}s`, 'warning');
+            await sleep(waitTime);
+            return await sendMessage(token, channelId, message);
+        } else if (response.status === 401) {
+            throw new Error('無効なトークンです');
+        } else if (response.status === 403) {
+            throw new Error('メッセージを送信する権限がありません');
+        } else if (!response.ok) {
+            throw new Error(`メッセージ送信エラー: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (showAllLogs) {
+            addLog(`メッセージ送信詳細: ${JSON.stringify(data)}`, 'info');
+        }
+        
+        return data;
+    } catch (error) {
+        throw error;
+    }
+}
+
+// グループDMから退出
+async function leaveGroupDM(token, channelId) {
+    try {
+        const response = await fetch(`https://discord.com/api/v9/channels/${channelId}?silent=false`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': token
+            }
+        });
+        
+        if (response.status === 429) {
+            const rateLimit = await response.json();
+            const waitTime = (rateLimit.retry_after || 1) * 1000;
+            addLog(`⏳ 退出レート制限: ${rateLimit.retry_after}s`, 'warning');
+            await sleep(waitTime);
+            return await leaveGroupDM(token, channelId);
+        } else if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`退出失敗: ${response.status} - ${errorText}`);
+        }
+        
+        addLog(`✅ グループ ${channelId} を正常に退出しました。`, 'success');
+        return true;
+    } catch (error) {
+        addLog(`❌ 退出失敗: ${error.message}`, 'error');
+        return false;
+    }
+}
+
+// フレンドリストを取得
+async function getFriendList(token) {
+    try {
+        const response = await fetch('https://discord.com/api/v9/users/@me/relationships', {
+            headers: { 'Authorization': token }
+        });
+        
+        if (response.status === 429) {
+            const rateLimit = await response.json();
+            const waitTime = rateLimit.retry_after * 1000;
+            addLog(`⏳ フレンド取得レート制限: ${rateLimit.retry_after}s`, 'warning');
+            await sleep(waitTime);
+            return await getFriendList(token);
+        }
+        
+        const friends = await response.json();
+        return friends.filter(friend => friend.type === 1).map(friend => friend.id);
+    } catch (error) {
+        addLog(`フレンドリスト取得エラー: ${error.message}`, 'error');
+        return [];
+    }
+}
+
+// ランダムな絵文字を生成
+function getRandomEmojis(count) {
+    const emojis = '😀😃😄😁😆😅🤣😂🙂🙃😉😊😇🥰😍🤩😘😗😚😙😋😛😜🤪🤨🧐🤓😎🥸🤠🤡🥳😏😒😞😔😟😕🙁☹️😣😖😫😩🥺😢😭😤😠😡🤬🤯😳🥵🥶😱😨😰😥😓🤗🤔🤭🤫🤥😶😐😑🫡🫢🫣🤤😪😴😵😵‍💫😲😯😬🙄😮‍💨😷🤒🤕🤢🤮🤧😇🥹🤑🤠😈👿👹👺💀☠️👻👽🤖🎃😺😸😹😻😼😽🙀😿😾';
+    const emojiArray = Array.from(emojis);
+    let result = '';
+    
+    for (let i = 0; i < count; i++) {
+        const randomIndex = Math.floor(Math.random() * emojiArray.length);
+        result += emojiArray[randomIndex];
+    }
+    
+    return result;
+}
+
+// スリープ関数
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// メインの操作実行関数
+async function startOperation() {
+    if (isRunning) {
+        addLog('操作は既に実行中です', 'warning');
+        return;
+    }
+    
+    // 入力値の検証
+    const token = document.getElementById('token').value.trim();
+    if (!token) {
+        showNotification('Discordトークンを入力してください', 'error');
+        return;
+    }
+    
+    const userIdsInput = document.getElementById('userIds').value.trim();
+    const userIds = userIdsInput ? userIdsInput.split(/[\s,]+/).filter(id => id.trim() !== '') : null;
+    
+    const groupCount = parseInt(document.getElementById('groupCount').value) || 10;
+    const messageCount = parseInt(document.getElementById('messageCount').value) || 5;
+    
+    // メッセージファイルの読み込み
+    const messageFile = document.getElementById('messageFile').files[0];
+    let messages = ['# おぜうの集い万歳\n## 今すぐ参加しよう\ndiscord.gg/ozeutop\nozetudo.net\nozeu.site'];
+    
+    if (messageFile) {
+        try {
+            messages = await loadMessageFile(messageFile);
+            addLog(`メッセージファイルを読み込みました: ${messages.length}件のメッセージ`, 'success');
+        } catch (error) {
+            addLog(error.message, 'error');
+            showNotification('メッセージファイルの読み込みに失敗しました', 'error');
+            return;
+        }
+    }
+    
+    // トークン検証
+    const isValidToken = await isTokenValid(token);
+    if (!isValidToken) {
+        showNotification('無効なトークンです', 'error');
+        return;
+    }
+    
+    // 実行状態を設定
+    isRunning = true;
+    stopSpam = false;
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('stopBtn').disabled = false;
+    
+    addLog('🚀 実行開始...', 'success');
+    showNotification('グループDM作成を開始しました', 'success');
+    
+    // 進捗更新のインターバルを設定
+    progressInterval = setInterval(updateStats, 500);
+    
+    try {
+        // グループ作成とメッセージ送信を実行
+        await createGroups(token, userIds, groupCount, messages[0]);
+        
+        if (!stopSpam) {
+            addLog('✅ すべての操作が完了しました', 'success');
+            showNotification('すべての操作が完了しました', 'success');
+        }
+    } catch (error) {
+        addLog(`❌ エラー: ${error.message}`, 'error');
+    } finally {
+        stopOperation();
+    }
+}
+
+// グループ作成関数
+async function createGroups(token, userIds, count, message) {
+    let created = 0;
+    
+    do {
+        if (stopSpam) return;
+        
+        try {
+            const groupName = 'spam-by-ozeu-' + getRandomEmojis(10);
+            const targetUserIds = userIds || await getFriendList(token);
+            
+            if (targetUserIds.length === 0) {
+                addLog('❌ 対象ユーザーがいなくなったため、処理を中断します', 'error');
+                break;
+            }
+            
+            const channelId = await createGroupDM(
+                token, 
+                targetUserIds.slice(0, 9),
+                groupName
+            );
+            
+            created++;
+            groupsCreated++;
+            addLog(`✅ グループ作成成功 (${created}個目)`, 'success');
+            
+            // メッセージ送信
+            for (let i = 0; i < messageCount && !stopSpam; i++) {
+                await sendMessage(token, channelId, message);
+                messagesSent++;
+                addLog(`✅ メッセージ送信成功`, 'success');
+                await sleep(1000);
+            }
+            
+            // グループ退出
+            if (leaveGroup) {
+                await leaveGroupDM(token, channelId);
+            }
+            
+            // レート制限回避のための遅延
+            await sleep(2000);
+            
+        } catch (error) {
+            addLog(`❌ グループ作成エラー: ${error.message}`, 'error');
+        }
+        
+        updateStats();
+    } while (created < count && !stopSpam);
+}
+
+// 操作停止関数
+function stopOperation() {
+    isRunning = false;
+    stopSpam = true;
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('stopBtn').disabled = true;
+    
+    if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+    }
+    
+    addLog('操作を停止しました', 'warning');
+}
+
+// ログ削除関数
+function clearLogs() {
+    document.getElementById('logBox').innerHTML = '';
+    addLog('ログをクリアしました', 'info');
+}
+
+// 定期的なPingテスト
+setInterval(() => {
+    if (document.getElementById('pingTestCheckbox').classList.contains('checked')) {
+        testPing();
+    }
+}, 30000);
